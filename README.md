@@ -1,4 +1,4 @@
-rancher-public-dns
+rdns-server
 ========
 
 A microservice that does micro things.
@@ -10,7 +10,7 @@ A microservice that does micro things.
 
 ## Running
 
-`./bin/rancher-public-dns`
+`./bin/rdns-server`
 
 ## License
 Copyright (c) 2014-2017 [Rancher Labs, Inc.](http://rancher.com)

@@ -11,7 +11,7 @@ var VERSION = "v0.0.0-dev"
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "rancher-public-dns"
+	app.Name = "rdns-server"
 	app.Version = VERSION
 	app.Usage = "You need help!"
 	app.Action = func(c *cli.Context) error {

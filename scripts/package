@@ -16,9 +16,9 @@ if echo $TAG | grep -q dirty; then
     TAG=dev
 fi
 
-cp ../bin/rancher-public-dns .
+cp ../bin/rdns-server .
 
-IMAGE=${REPO}/rancher-public-dns:${TAG}
+IMAGE=${REPO}/rdns-server:${TAG}
 docker build -t ${IMAGE} .
 echo ${IMAGE} > ../dist/images
 echo Built ${IMAGE}
