@@ -6,7 +6,7 @@ import (
 	"github.com/gorilla/context"
 )
 
-func ApiHandler(f http.Handler) http.Handler {
+func apiHandler(f http.Handler) http.Handler {
 	return context.ClearHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
 }

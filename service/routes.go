@@ -13,7 +13,38 @@ type Route struct {
 	HandlerFunc http.HandlerFunc
 }
 
-var routes = Routes{}
+var routes = Routes{
+	Route{
+		"getDomain",
+		"GET",
+		"/v1/domain/{fqdn}",
+		getDomain,
+	},
+	Route{
+		"createDomain",
+		"POST",
+		"/v1/domain",
+		createDomain,
+	},
+	Route{
+		"updateDomain",
+		"PUT",
+		"/v1/domain/{fqdn}",
+		updateDomain,
+	},
+	Route{
+		"deleteDomain",
+		"DELETE",
+		"/v1/domain/{fqdn}",
+		deleteDomain,
+	},
+	Route{
+		"renewDomain",
+		"PUT",
+		"/v1/domain/{fqdn}",
+		renewDomain,
+	},
+}
 
 func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
@@ -23,7 +54,7 @@ func NewRouter() *mux.Router {
 			Methods(route.Method).
 			Path(route.Pattern).
 			Name(route.Name).
-			Handler(ApiHandler(route.HandlerFunc))
+			Handler(apiHandler(route.HandlerFunc))
 	}
 
 	return router
