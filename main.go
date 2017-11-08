@@ -38,6 +38,11 @@ func main() {
 			Value:  "http://127.0.0.1:2379",
 			EnvVar: "RANCHER_ETCD_ENDPOINTS",
 		},
+		cli.StringFlag{
+			Name:   "etcd-prepath",
+			Value:  "/rdns",
+			EnvVar: "RANCHER_ETCD_PREPATH",
+		},
 	}
 	app.Action = func(ctx *cli.Context) {
 		if err := appMain(ctx); err != nil {
@@ -60,7 +65,7 @@ func appMain(ctx *cli.Context) error {
 	)
 	switch name {
 	case etcd.ETCD_BACKEND:
-		b, err = etcd.NewEtcdBackend()
+		b, err = etcd.NewEtcdBackend(ctx.String("etcd-endpoints"), ctx.String("etcd-prepath"))
 	}
 	if err != nil {
 		return errors.Wrapf(err, "Failed to init backend %s", ctx.String("backend"))
