@@ -3,7 +3,9 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/niusmallnan/rdns-server/backend"
 	"github.com/niusmallnan/rdns-server/backend/etcd"
 	"github.com/niusmallnan/rdns-server/service"
@@ -56,16 +58,19 @@ func main() {
 
 func appMain(ctx *cli.Context) error {
 	if ctx.Bool("debug") {
-		logrus.SetLevelString("debug")
+		logrus.SetLevel(logrus.DebugLevel)
 	}
 
 	var (
-		b     *backend.Backend
-		error err
+		b   backend.Backend
+		err error
 	)
-	switch name {
+	switch ctx.String("backend") {
 	case etcd.ETCD_BACKEND:
-		b, err = etcd.NewEtcdBackend(ctx.String("etcd-endpoints"), ctx.String("etcd-prepath"))
+		etcdEndpoints := strings.Split(ctx.String("etcd-endpoints"), ",")
+		b, err = etcd.NewEtcdBackend(etcdEndpoints, ctx.String("etcd-prepath"))
+	default:
+		err = errors.Errorf("Failed to find backend %s", ctx.String("backend"))
 	}
 	if err != nil {
 		return errors.Wrapf(err, "Failed to init backend %s", ctx.String("backend"))
@@ -76,7 +81,7 @@ func appMain(ctx *cli.Context) error {
 
 	go func() {
 		router := service.NewRouter()
-		done <- http.ListenAndServe(ctx.String(Listen), router)
+		done <- http.ListenAndServe(ctx.String(ctx.String("listen")), router)
 	}()
 
 	return <-done

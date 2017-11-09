@@ -1,45 +1,25 @@
 package backend
 
 import (
-	"encoding/json"
-	"net/http"
-	"time"
-
 	"github.com/Sirupsen/logrus"
+	"github.com/niusmallnan/rdns-server/model"
 )
 
-var currentBackend *Backend
+var currentBackend Backend
 
 type Backend interface {
-	Get(dopts *DomainOptions) (Domain, error)
-	Create(dopts *DomainOptions) (Domain, error)
-	Update(dopts *DomainOptions) (Domain, error)
-	Delete(dopts *DomainOptions) error
-	Renew(dopts *DomainOptions) (Domain, error)
+	Get(dopts *model.DomainOptions) (model.Domain, error)
+	Create(dopts *model.DomainOptions) (model.Domain, error)
+	Update(dopts *model.DomainOptions) (model.Domain, error)
+	Delete(dopts *model.DomainOptions) error
+	Renew(dopts *model.DomainOptions) (model.Domain, error)
 }
 
-type Domain struct {
-	Fqdn       string     `"json:fqdn"`
-	Hosts      []string   `"json:hosts"`
-	Expiration *time.Time `json:"expiration,omitempty"`
-}
-
-type DomainOptions struct {
-	Fqdn  string   `"json:fqdn"`
-	Hosts []string `"json:hosts"`
-}
-
-func ParseDomainOptions(r *http.Request) (opts *DomainOptions, err error) {
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(opts)
-	return opts, err
-}
-
-func SetBackend(b *Backend) {
+func SetBackend(b Backend) {
 	currentBackend = b
 }
 
-func GetBackend() *Backend {
+func GetBackend() Backend {
 	if currentBackend == nil {
 		logrus.Fatal("Not found any backend")
 	}

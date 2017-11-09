@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/niusmallnan/rdns-server/backend"
+	"github.com/niusmallnan/rdns-server/model"
 )
 
 type HTTPError struct {
@@ -32,7 +33,9 @@ func returnHTTPError(w http.ResponseWriter, httpStatus int, err error) {
 
 func returnJSON(w http.ResponseWriter, res []byte) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
+	if res != nil {
+		w.Write(res)
+	}
 }
 
 func apiHandler(f http.Handler) http.Handler {
@@ -41,7 +44,10 @@ func apiHandler(f http.Handler) http.Handler {
 }
 
 func createDomain(w http.ResponseWriter, r *http.Request) {
-	opts := backend.ParseDomainOptions(r)
+	opts, err := model.ParseDomainOptions(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+	}
 
 	b := backend.GetBackend()
 	d, err := b.Create(opts)
@@ -53,14 +59,14 @@ func createDomain(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 	}
-	returnJSON(res)
+	returnJSON(w, res)
 }
 
 func getDomain(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 
-	opts := &DomainOptions{Fqdn: fqdn}
+	opts := &model.DomainOptions{Fqdn: fqdn}
 	b := backend.GetBackend()
 	d, err := b.Get(opts)
 	if err != nil {
@@ -71,14 +77,14 @@ func getDomain(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 	}
-	returnJSON(res)
+	returnJSON(w, res)
 }
 
 func renewDomain(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 
-	opts := &DomainOptions{Fqdn: fqdn}
+	opts := &model.DomainOptions{Fqdn: fqdn}
 	b := backend.GetBackend()
 	d, err := b.Renew(opts)
 	if err != nil {
@@ -89,14 +95,17 @@ func renewDomain(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 	}
-	returnJSON(res)
+	returnJSON(w, res)
 }
 
 func updateDomain(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 
-	opts := backend.ParseDomainOptions(r)
+	opts, err := model.ParseDomainOptions(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+	}
 	opts.Fqdn = fqdn
 	b := backend.GetBackend()
 	d, err := b.Update(opts)
@@ -108,23 +117,19 @@ func updateDomain(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 	}
-	returnJSON(res)
+	returnJSON(w, res)
 }
 
 func deleteDomain(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 
-	opts := &DomainOptions{Fqdn: fqdn}
+	opts := &model.DomainOptions{Fqdn: fqdn}
 	b := backend.GetBackend()
-	d, err := b.Delete(opts)
+	err := b.Delete(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 	}
 
-	res, err := json.Marshal(d)
-	if err != nil {
-		returnHTTPError(w, http.StatusInternalServerError, err)
-	}
-	returnJSON(res)
+	returnJSON(w, nil)
 }

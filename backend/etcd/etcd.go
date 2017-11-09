@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/client"
+	"github.com/niusmallnan/rdns-server/model"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 type EtcdBackend struct {
-	kapi     *client.KeysAPI
+	kapi     client.KeysAPI
 	prePath  string
 	duration time.Duration
 }
@@ -46,13 +47,13 @@ func (e *EtcdBackend) path(domainName string) string {
 	return e.prePath + convertToPath(domainName)
 }
 
-func (e *EtcdBackend) set(path string, dopts *DomainOptions, refresh bool) (d Domain, err error) {
+func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, refresh bool) (d model.Domain, err error) {
 	// mkdir/update a dir and set TTL
 	opts := &client.SetOptions{TTL: e.duration, Dir: true}
 	if refresh {
 		opts.PrevExist = client.PrevExist
 	}
-	resp, err := kapi.Set(context.Background(), path, nil, opts)
+	resp, err := e.kapi.Set(context.Background(), path, "", opts)
 	if err != nil {
 		return d, err
 	}
@@ -60,16 +61,20 @@ func (e *EtcdBackend) set(path string, dopts *DomainOptions, refresh bool) (d Do
 	// set key value
 	for _, h := range dopts.Hosts {
 		key := formatKey(h) + path
-		resp, err := kapi.Set(context.Background(), key, h, nil)
+		_, err := e.kapi.Set(context.Background(), key, h, nil)
 		if err != nil {
 			return d, err
 		}
+		d.Hosts = append(d.Hosts, h)
 	}
+
+	d.Fqdn = dopts.Fqdn
+	d.Expiration = resp.Node.Expiration
 
 	return d, nil
 }
 
-func (e *EtcdBackend) Get(dopts *DomainOptions) (d Domain, err error) {
+func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error) {
 	path := e.path(dopts.Fqdn)
 	//opts := &client.GetOptions{Recursive: true}
 	resp, err := e.kapi.Get(context.Background(), path, nil)
@@ -86,13 +91,13 @@ func (e *EtcdBackend) Get(dopts *DomainOptions) (d Domain, err error) {
 		if err != nil {
 			return d, err
 		}
-		d.hosts = append(d.hosts, v[VALUE_HOST_KEY])
+		d.Hosts = append(d.Hosts, v[VALUE_HOST_KEY])
 	}
 
 	return d, nil
 }
 
-func (e *EtcdBackend) Create(dopts *DomainOptions) (d Domain, err error) {
+func (e *EtcdBackend) Create(dopts *model.DomainOptions) (d model.Domain, err error) {
 	path := e.path(dopts.Fqdn)
 
 	d, err = e.set(path, dopts, false)
@@ -100,34 +105,26 @@ func (e *EtcdBackend) Create(dopts *DomainOptions) (d Domain, err error) {
 		return d, err
 	}
 
-	return e.Get(d)
+	return e.Get(dopts)
 }
 
-func (e *EtcdBackend) Update(dopts *DomainOptions) (d Domain, err error) {
+func (e *EtcdBackend) Update(dopts *model.DomainOptions) (d model.Domain, err error) {
 	path := e.path(dopts.Fqdn)
 
 	d, err = e.set(path, dopts, true)
-	if err != nil {
-		return d, err
-	}
-
-	return e.Get(d)
+	return d, err
 }
 
-func (e *EtcdBackend) Renew(dopts *DomainOptions) (d Domain, err error) {
-	return Update(dopts)
+func (e *EtcdBackend) Renew(dopts *model.DomainOptions) (d model.Domain, err error) {
+	return e.Update(dopts)
 }
 
-func (e *EtcdBackend) Delete(dopts *DomainOptions) error {
+func (e *EtcdBackend) Delete(dopts *model.DomainOptions) error {
 	path := e.path(dopts.Fqdn)
 
 	opts := &client.DeleteOptions{Dir: true, Recursive: true}
-	resp, err = e.kapi.Delete(context.Background(), path, opts)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err := e.kapi.Delete(context.Background(), path, opts)
+	return err
 }
 
 // convertToPath
