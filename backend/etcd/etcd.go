@@ -3,9 +3,11 @@ package etcd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/client"
 	"github.com/niusmallnan/rdns-server/model"
 )
@@ -23,6 +25,7 @@ type EtcdBackend struct {
 }
 
 func NewEtcdBackend(endpoints []string, prePath string) (*EtcdBackend, error) {
+	logrus.Debugf("Etcd init...")
 	cfg := client.Config{
 		Endpoints: endpoints,
 		Transport: client.DefaultTransport,
@@ -47,34 +50,93 @@ func (e *EtcdBackend) path(domainName string) string {
 	return e.prePath + convertToPath(domainName)
 }
 
-func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, refresh bool) (d model.Domain, err error) {
-	// mkdir/update a dir and set TTL
-	opts := &client.SetOptions{TTL: e.duration, Dir: true}
-	if refresh {
-		opts.PrevExist = client.PrevExist
+func (e *EtcdBackend) lookupHosts(path string) (hosts []string, err error) {
+	opts := &client.GetOptions{Recursive: true}
+	resp, err := e.kapi.Get(context.Background(), path, opts)
+	if err != nil {
+		return hosts, err
 	}
+	for _, n := range resp.Node.Nodes {
+		v, err := convertToMap(n.Value)
+		if err != nil {
+			return hosts, err
+		}
+		hosts = append(hosts, v[VALUE_HOST_KEY])
+	}
+
+	return hosts, nil
+}
+
+func (e *EtcdBackend) refreshExpiration(path string, dopts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("Etcd: refresh dir TTL: %s", path)
+	opts := &client.SetOptions{TTL: e.duration, Dir: true, PrevExist: client.PrevExist}
 	resp, err := e.kapi.Set(context.Background(), path, "", opts)
 	if err != nil {
 		return d, err
 	}
 
-	// set key value
-	for _, h := range dopts.Hosts {
-		key := formatKey(h) + path
-		_, err := e.kapi.Set(context.Background(), key, h, nil)
-		if err != nil {
-			return d, err
-		}
-		d.Hosts = append(d.Hosts, h)
+	curHosts, err := e.lookupHosts(path)
+	if err != nil {
+		return d, err
 	}
 
 	d.Fqdn = dopts.Fqdn
+	d.Hosts = curHosts
 	d.Expiration = resp.Node.Expiration
+	return d, err
+}
+
+func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, exist bool) (d model.Domain, err error) {
+	opts := &client.SetOptions{TTL: e.duration, Dir: true}
+	if exist {
+		opts.PrevExist = client.PrevExist
+	}
+	logrus.Debugf("Etcd: make a dir: %s", path)
+	resp, err := e.kapi.Set(context.Background(), path, "", opts)
+	if err != nil {
+		return d, err
+	}
+
+	// get current hosts
+	curHosts, err := e.lookupHosts(path)
+	if err != nil {
+		return d, err
+	}
+
+	// set key value
+	newHostsMap := sliceToMap(dopts.Hosts)
+	oldHostsMap := sliceToMap(curHosts)
+	for oldh, _ := range oldHostsMap {
+		key := fmt.Sprintf("%s/%s", path, formatKey(oldh))
+		logrus.Debugf("Etcd: delete a key/value: %s:%s", key, formatValue(oldh))
+		if _, ok := newHostsMap[oldh]; !ok {
+			_, err := e.kapi.Delete(context.Background(), key, nil)
+			if err != nil {
+				return d, err
+			}
+		}
+	}
+	for newh, _ := range newHostsMap {
+		if _, ok := oldHostsMap[newh]; !ok {
+			key := fmt.Sprintf("%s/%s", path, formatKey(newh))
+			logrus.Debugf("Etcd: set a key/value: %s:%s", key, formatValue(newh))
+			_, err := e.kapi.Set(context.Background(), key, formatValue(newh), nil)
+			if err != nil {
+				return d, err
+			}
+		}
+	}
+
+	d.Fqdn = dopts.Fqdn
+	d.Hosts = dopts.Hosts
+	d.Expiration = resp.Node.Expiration
+	logrus.Debugf("Finished to set a domain entry: %s", d.String())
 
 	return d, nil
 }
 
 func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("Get in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 	//opts := &client.GetOptions{Recursive: true}
 	resp, err := e.kapi.Get(context.Background(), path, nil)
@@ -82,6 +144,7 @@ func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error
 		return d, err
 	}
 
+	d.Fqdn = dopts.Fqdn
 	d.Expiration = resp.Node.Expiration
 	for _, n := range resp.Node.Nodes {
 		if n.Dir {
@@ -98,6 +161,7 @@ func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error
 }
 
 func (e *EtcdBackend) Create(dopts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("Create in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
 	d, err = e.set(path, dopts, false)
@@ -109,6 +173,7 @@ func (e *EtcdBackend) Create(dopts *model.DomainOptions) (d model.Domain, err er
 }
 
 func (e *EtcdBackend) Update(dopts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("Update in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
 	d, err = e.set(path, dopts, true)
@@ -116,10 +181,15 @@ func (e *EtcdBackend) Update(dopts *model.DomainOptions) (d model.Domain, err er
 }
 
 func (e *EtcdBackend) Renew(dopts *model.DomainOptions) (d model.Domain, err error) {
-	return e.Update(dopts)
+	logrus.Debugf("Renew in etcd: Got the domain options entry: %s", dopts.String())
+	path := e.path(dopts.Fqdn)
+
+	d, err = e.refreshExpiration(path, dopts)
+	return d, err
 }
 
 func (e *EtcdBackend) Delete(dopts *model.DomainOptions) error {
+	logrus.Debugf("Delete in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
 	opts := &client.DeleteOptions{Dir: true, Recursive: true}
@@ -141,15 +211,29 @@ func convertToPath(domain string) string {
 }
 
 // convertToMap
-// {"host":"1.1.1.1"}
+// source data: {"host":"1.1.1.1"}
 func convertToMap(value string) (map[string]string, error) {
 	var v map[string]string
 	err := json.Unmarshal([]byte(value), &v)
 	return v, err
 }
 
+// formatValue
+// 1.1.1.1 => {"host": "1.1.1.1"}
+func formatValue(value string) string {
+	return fmt.Sprintf("{\"%s\":\"%s\"}", VALUE_HOST_KEY, value)
+}
+
 // formatKey
 // 1.1.1.1 => 1_1_1_1
 func formatKey(key string) string {
 	return strings.Replace(key, ".", "_", -1)
+}
+
+func sliceToMap(ss []string) map[string]bool {
+	m := make(map[string]bool)
+	for _, s := range ss {
+		m[s] = true
+	}
+	return m
 }

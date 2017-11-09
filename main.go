@@ -61,6 +61,7 @@ func appMain(ctx *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
+	logrus.Infof("Using backend: %s", ctx.String("backend"))
 	var (
 		b   backend.Backend
 		err error
@@ -81,7 +82,7 @@ func appMain(ctx *cli.Context) error {
 
 	go func() {
 		router := service.NewRouter()
-		done <- http.ListenAndServe(ctx.String(ctx.String("listen")), router)
+		done <- http.ListenAndServe(ctx.String("listen"), router)
 	}()
 
 	return <-done

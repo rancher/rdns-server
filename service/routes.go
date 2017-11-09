@@ -3,6 +3,7 @@ package service
 import (
 	"net/http"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 
@@ -43,7 +44,7 @@ var routes = Routes{
 	Route{
 		"renewDomain",
 		"PUT",
-		"/v1/domain/{fqdn}",
+		"/v1/domain/{fqdn}/renew",
 		renewDomain,
 	},
 }
@@ -51,6 +52,7 @@ var routes = Routes{
 func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
+	logrus.Debugf("Setting HTTP handlers")
 	for _, route := range routes {
 		router.
 			Methods(route.Method).

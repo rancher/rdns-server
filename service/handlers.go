@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/context"
@@ -12,54 +11,69 @@ import (
 	"github.com/niusmallnan/rdns-server/model"
 )
 
-type HTTPError struct {
-	Status  string `"json:status"`
-	Message string `"json:msg"`
+type Response struct {
+	Status  int          `json:"status"`
+	Message string       `json:"msg"`
+	Data    model.Domain `json:"data,omitempty"`
 }
 
 func returnHTTPError(w http.ResponseWriter, httpStatus int, err error) {
-	e := HTTPError{
-		Status:  strconv.Itoa(httpStatus),
+	logrus.Errorf("Got a response error: %v", err)
+	o := Response{
+		Status:  httpStatus,
 		Message: err.Error(),
 	}
-	res, _e := json.Marshal(e)
-	if _e != nil {
-		logrus.Error(_e)
+	res, _ := json.Marshal(o)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
+}
+
+func returnSuccess(w http.ResponseWriter, d model.Domain) {
+	o := Response{
+		Status: http.StatusOK,
+		Data:   d,
+	}
+	res, err := json.Marshal(o)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(res)
 }
 
-func returnJSON(w http.ResponseWriter, res []byte) {
-	w.Header().Set("Content-Type", "application/json")
-	if res != nil {
-		w.Write(res)
+func returnSuccessNoData(w http.ResponseWriter) {
+	o := Response{
+		Status: http.StatusOK,
 	}
+	res, _ := json.Marshal(o)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
+
 }
 
 func apiHandler(f http.Handler) http.Handler {
-	return context.ClearHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
+	return context.ClearHandler(f)
 }
 
 func createDomain(w http.ResponseWriter, r *http.Request) {
 	opts, err := model.ParseDomainOptions(r)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
 	b := backend.GetBackend()
 	d, err := b.Create(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
-	res, err := json.Marshal(d)
-	if err != nil {
-		returnHTTPError(w, http.StatusInternalServerError, err)
-	}
-	returnJSON(w, res)
+	returnSuccess(w, d)
 }
 
 func getDomain(w http.ResponseWriter, r *http.Request) {
@@ -71,13 +85,10 @@ func getDomain(w http.ResponseWriter, r *http.Request) {
 	d, err := b.Get(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
-	res, err := json.Marshal(d)
-	if err != nil {
-		returnHTTPError(w, http.StatusInternalServerError, err)
-	}
-	returnJSON(w, res)
+	returnSuccess(w, d)
 }
 
 func renewDomain(w http.ResponseWriter, r *http.Request) {
@@ -89,13 +100,10 @@ func renewDomain(w http.ResponseWriter, r *http.Request) {
 	d, err := b.Renew(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
-	res, err := json.Marshal(d)
-	if err != nil {
-		returnHTTPError(w, http.StatusInternalServerError, err)
-	}
-	returnJSON(w, res)
+	returnSuccess(w, d)
 }
 
 func updateDomain(w http.ResponseWriter, r *http.Request) {
@@ -105,19 +113,17 @@ func updateDomain(w http.ResponseWriter, r *http.Request) {
 	opts, err := model.ParseDomainOptions(r)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 	opts.Fqdn = fqdn
 	b := backend.GetBackend()
 	d, err := b.Update(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
-	res, err := json.Marshal(d)
-	if err != nil {
-		returnHTTPError(w, http.StatusInternalServerError, err)
-	}
-	returnJSON(w, res)
+	returnSuccess(w, d)
 }
 
 func deleteDomain(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +135,8 @@ func deleteDomain(w http.ResponseWriter, r *http.Request) {
 	err := b.Delete(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
 	}
 
-	returnJSON(w, nil)
+	returnSuccessNoData(w)
 }
