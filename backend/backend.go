@@ -1,8 +1,8 @@
 package backend
 
 import (
-	"github.com/Sirupsen/logrus"
 	"github.com/niusmallnan/rdns-server/model"
+	"github.com/sirupsen/logrus"
 )
 
 var currentBackend Backend

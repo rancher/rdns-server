@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/niusmallnan/rdns-server/backend"
 	"github.com/niusmallnan/rdns-server/model"
+	"github.com/sirupsen/logrus"
 )
 
 type Response struct {

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/client"
 	"github.com/niusmallnan/rdns-server/model"
+	"github.com/sirupsen/logrus"
 )
 
 const (
