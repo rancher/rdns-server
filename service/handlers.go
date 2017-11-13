@@ -26,6 +26,7 @@ func returnHTTPError(w http.ResponseWriter, httpStatus int, err error) {
 	res, _ := json.Marshal(o)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
 	w.Write(res)
 }
 
