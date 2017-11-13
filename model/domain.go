@@ -8,9 +8,9 @@ import (
 )
 
 type Domain struct {
-	Fqdn       string     `"json:fqdn"`
-	Hosts      []string   `"json:hosts"`
-	Expiration *time.Time `"json:expiration"`
+	Fqdn       string     `json:"fqdn"`
+	Hosts      []string   `json:"hosts"`
+	Expiration *time.Time `json:"expiration"`
 }
 
 func (d *Domain) String() string {
@@ -18,8 +18,8 @@ func (d *Domain) String() string {
 }
 
 type DomainOptions struct {
-	Fqdn  string   `"json:fqdn"`
-	Hosts []string `"json:hosts"`
+	Fqdn  string   `json:"fqdn"`
+	Hosts []string `json:"hosts"`
 }
 
 func (d *DomainOptions) String() string {
