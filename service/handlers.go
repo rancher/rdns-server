@@ -11,15 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Response struct {
-	Status  int          `json:"status"`
-	Message string       `json:"msg"`
-	Data    model.Domain `json:"data,omitempty"`
-}
-
 func returnHTTPError(w http.ResponseWriter, httpStatus int, err error) {
 	logrus.Errorf("Got a response error: %v", err)
-	o := Response{
+	o := model.Response{
 		Status:  httpStatus,
 		Message: err.Error(),
 	}
@@ -30,10 +24,11 @@ func returnHTTPError(w http.ResponseWriter, httpStatus int, err error) {
 	w.Write(res)
 }
 
-func returnSuccess(w http.ResponseWriter, d model.Domain) {
-	o := Response{
-		Status: http.StatusOK,
-		Data:   d,
+func returnSuccess(w http.ResponseWriter, d model.Domain, msg string) {
+	o := model.Response{
+		Status:  http.StatusOK,
+		Message: msg,
+		Data:    d,
 	}
 	res, err := json.Marshal(o)
 	if err != nil {
@@ -46,7 +41,7 @@ func returnSuccess(w http.ResponseWriter, d model.Domain) {
 }
 
 func returnSuccessNoData(w http.ResponseWriter) {
-	o := Response{
+	o := model.Response{
 		Status: http.StatusOK,
 	}
 	res, _ := json.Marshal(o)
@@ -74,22 +69,21 @@ func createDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnSuccess(w, d)
+	returnSuccess(w, d, "")
 }
 
 func getDomain(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
+	msg := ""
 
 	opts := &model.DomainOptions{Fqdn: fqdn}
 	b := backend.GetBackend()
 	d, err := b.Get(opts)
 	if err != nil {
-		returnHTTPError(w, http.StatusInternalServerError, err)
-		return
+		msg = err.Error()
 	}
-
-	returnSuccess(w, d)
+	returnSuccess(w, d, msg)
 }
 
 func renewDomain(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +98,7 @@ func renewDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnSuccess(w, d)
+	returnSuccess(w, d, "")
 }
 
 func updateDomain(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +118,7 @@ func updateDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnSuccess(w, d)
+	returnSuccess(w, d, "")
 }
 
 func deleteDomain(w http.ResponseWriter, r *http.Request) {
