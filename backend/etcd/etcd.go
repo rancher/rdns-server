@@ -105,11 +105,13 @@ func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, exist bool) (
 
 	// set key value
 	newHostsMap := sliceToMap(dopts.Hosts)
+	logrus.Debugf("Got new hosts map: %v", newHostsMap)
 	oldHostsMap := sliceToMap(curHosts)
+	logrus.Debugf("Got old hosts map: %v", oldHostsMap)
 	for oldh, _ := range oldHostsMap {
-		key := fmt.Sprintf("%s/%s", path, formatKey(oldh))
-		logrus.Debugf("Etcd: delete a key/value: %s:%s", key, formatValue(oldh))
 		if _, ok := newHostsMap[oldh]; !ok {
+			key := fmt.Sprintf("%s/%s", path, formatKey(oldh))
+			logrus.Debugf("Etcd: delete a key/value: %s:%s", key, formatValue(oldh))
 			_, err := e.kapi.Delete(context.Background(), key, nil)
 			if err != nil {
 				return d, err
