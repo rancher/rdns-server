@@ -13,18 +13,18 @@ import (
 )
 
 const (
-	EtcdBackend  = "etcd"
+	BackendName  = "etcd"
 	ValueHostKey = "host"
 	DefaultTTL   = "240h"
 )
 
-type EtcdBackend struct {
+type BackendOperator struct {
 	kapi     client.KeysAPI
 	prePath  string
 	duration time.Duration
 }
 
-func NewEtcdBackend(endpoints []string, prePath string) (*EtcdBackend, error) {
+func NewEtcdBackend(endpoints []string, prePath string) (*BackendOperator, error) {
 	logrus.Debugf("Etcd init...")
 	cfg := client.Config{
 		Endpoints: endpoints,
@@ -43,14 +43,14 @@ func NewEtcdBackend(endpoints []string, prePath string) (*EtcdBackend, error) {
 		return nil, err
 	}
 
-	return &EtcdBackend{kapi, prePath, duration}, nil
+	return &BackendOperator{kapi, prePath, duration}, nil
 }
 
-func (e *EtcdBackend) path(domainName string) string {
+func (e *BackendOperator) path(domainName string) string {
 	return e.prePath + convertToPath(domainName)
 }
 
-func (e *EtcdBackend) lookupHosts(path string) (hosts []string, err error) {
+func (e *BackendOperator) lookupHosts(path string) (hosts []string, err error) {
 	opts := &client.GetOptions{Recursive: true}
 	resp, err := e.kapi.Get(context.Background(), path, opts)
 	if err != nil {
@@ -67,7 +67,7 @@ func (e *EtcdBackend) lookupHosts(path string) (hosts []string, err error) {
 	return hosts, nil
 }
 
-func (e *EtcdBackend) refreshExpiration(path string, dopts *model.DomainOptions) (d model.Domain, err error) {
+func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("Etcd: refresh dir TTL: %s", path)
 	opts := &client.SetOptions{TTL: e.duration, Dir: true, PrevExist: client.PrevExist}
 	resp, err := e.kapi.Set(context.Background(), path, "", opts)
@@ -86,7 +86,7 @@ func (e *EtcdBackend) refreshExpiration(path string, dopts *model.DomainOptions)
 	return d, err
 }
 
-func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, exist bool) (d model.Domain, err error) {
+func (e *BackendOperator) set(path string, dopts *model.DomainOptions, exist bool) (d model.Domain, err error) {
 	opts := &client.SetOptions{TTL: e.duration, Dir: true}
 	if exist {
 		opts.PrevExist = client.PrevExist
@@ -137,7 +137,7 @@ func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, exist bool) (
 	return d, nil
 }
 
-func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error) {
+func (e *BackendOperator) Get(dopts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("Get in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 	//opts := &client.GetOptions{Recursive: true}
@@ -162,7 +162,7 @@ func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error
 	return d, nil
 }
 
-func (e *EtcdBackend) Create(dopts *model.DomainOptions) (d model.Domain, err error) {
+func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("Create in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
@@ -174,7 +174,7 @@ func (e *EtcdBackend) Create(dopts *model.DomainOptions) (d model.Domain, err er
 	return e.Get(dopts)
 }
 
-func (e *EtcdBackend) Update(dopts *model.DomainOptions) (d model.Domain, err error) {
+func (e *BackendOperator) Update(dopts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("Update in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
@@ -182,7 +182,7 @@ func (e *EtcdBackend) Update(dopts *model.DomainOptions) (d model.Domain, err er
 	return d, err
 }
 
-func (e *EtcdBackend) Renew(dopts *model.DomainOptions) (d model.Domain, err error) {
+func (e *BackendOperator) Renew(dopts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("Renew in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
@@ -190,7 +190,7 @@ func (e *EtcdBackend) Renew(dopts *model.DomainOptions) (d model.Domain, err err
 	return d, err
 }
 
-func (e *EtcdBackend) Delete(dopts *model.DomainOptions) error {
+func (e *BackendOperator) Delete(dopts *model.DomainOptions) error {
 	logrus.Debugf("Delete in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 

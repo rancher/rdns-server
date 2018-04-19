@@ -67,7 +67,7 @@ func appMain(ctx *cli.Context) error {
 		err error
 	)
 	switch ctx.String("backend") {
-	case etcd.EtcdBackend:
+	case etcd.BackendName:
 		etcdEndpoints := strings.Split(ctx.String("etcd-endpoints"), ",")
 		b, err = etcd.NewEtcdBackend(etcdEndpoints, ctx.String("etcd-prepath"))
 	default:
