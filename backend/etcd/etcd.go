@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	ETCD_BACKEND   = "etcd"
-	VALUE_HOST_KEY = "host"
-	DEFAULT_TTL    = "240h"
+	EtcdBackend  = "etcd"
+	ValueHostKey = "host"
+	DefaultTTL   = "240h"
 )
 
 type EtcdBackend struct {
@@ -38,7 +38,7 @@ func NewEtcdBackend(endpoints []string, prePath string) (*EtcdBackend, error) {
 	}
 	kapi := client.NewKeysAPI(c)
 
-	duration, err := time.ParseDuration(DEFAULT_TTL)
+	duration, err := time.ParseDuration(DefaultTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (e *EtcdBackend) lookupHosts(path string) (hosts []string, err error) {
 		if err != nil {
 			return hosts, err
 		}
-		hosts = append(hosts, v[VALUE_HOST_KEY])
+		hosts = append(hosts, v[ValueHostKey])
 	}
 
 	return hosts, nil
@@ -108,7 +108,7 @@ func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, exist bool) (
 	logrus.Debugf("Got new hosts map: %v", newHostsMap)
 	oldHostsMap := sliceToMap(curHosts)
 	logrus.Debugf("Got old hosts map: %v", oldHostsMap)
-	for oldh, _ := range oldHostsMap {
+	for oldh := range oldHostsMap {
 		if _, ok := newHostsMap[oldh]; !ok {
 			key := fmt.Sprintf("%s/%s", path, formatKey(oldh))
 			logrus.Debugf("Etcd: delete a key/value: %s:%s", key, formatValue(oldh))
@@ -118,7 +118,7 @@ func (e *EtcdBackend) set(path string, dopts *model.DomainOptions, exist bool) (
 			}
 		}
 	}
-	for newh, _ := range newHostsMap {
+	for newh := range newHostsMap {
 		if _, ok := oldHostsMap[newh]; !ok {
 			key := fmt.Sprintf("%s/%s", path, formatKey(newh))
 			logrus.Debugf("Etcd: set a key/value: %s:%s", key, formatValue(newh))
@@ -156,7 +156,7 @@ func (e *EtcdBackend) Get(dopts *model.DomainOptions) (d model.Domain, err error
 		if err != nil {
 			return d, err
 		}
-		d.Hosts = append(d.Hosts, v[VALUE_HOST_KEY])
+		d.Hosts = append(d.Hosts, v[ValueHostKey])
 	}
 
 	return d, nil
@@ -223,7 +223,7 @@ func convertToMap(value string) (map[string]string, error) {
 // formatValue
 // 1.1.1.1 => {"host": "1.1.1.1"}
 func formatValue(value string) string {
-	return fmt.Sprintf("{\"%s\":\"%s\"}", VALUE_HOST_KEY, value)
+	return fmt.Sprintf("{\"%s\":\"%s\"}", ValueHostKey, value)
 }
 
 // formatKey
