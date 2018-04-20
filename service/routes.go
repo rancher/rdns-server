@@ -67,5 +67,7 @@ func NewRouter() *mux.Router {
 			Handler(apiHandler(route.HandlerFunc))
 	}
 
+	router.Use(tokenMiddleware)
+
 	return router
 }

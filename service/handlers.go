@@ -40,6 +40,24 @@ func returnSuccess(w http.ResponseWriter, d model.Domain, msg string) {
 	w.Write(res)
 }
 
+func returnSuccessWithToken(w http.ResponseWriter, d model.Domain, msg string) {
+	token := generateToken(d.Fqdn)
+	o := model.Response{
+		Status:  http.StatusOK,
+		Message: msg,
+		Data:    d,
+		Token:   token,
+	}
+	res, err := json.Marshal(o)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
+}
+
 func returnSuccessNoData(w http.ResponseWriter) {
 	o := model.Response{
 		Status: http.StatusOK,
@@ -48,7 +66,6 @@ func returnSuccessNoData(w http.ResponseWriter) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(res)
-
 }
 
 func apiHandler(f http.Handler) http.Handler {
@@ -69,7 +86,7 @@ func createDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnSuccess(w, d, "")
+	returnSuccessWithToken(w, d, "")
 }
 
 func getDomain(w http.ResponseWriter, r *http.Request) {
