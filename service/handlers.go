@@ -135,3 +135,7 @@ func deleteDomain(w http.ResponseWriter, r *http.Request) {
 
 	returnSuccessNoData(w)
 }
+
+func ping(w http.ResponseWriter, r *http.Request) {
+	returnSuccessNoData(w)
+}

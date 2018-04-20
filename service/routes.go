@@ -18,6 +18,12 @@ type Routes []Route
 
 var routes = Routes{
 	Route{
+		"ping",
+		"GET",
+		"/ping",
+		ping,
+	},
+	Route{
 		"getDomain",
 		"GET",
 		"/v1/domain/{fqdn}",
