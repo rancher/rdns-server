@@ -31,6 +31,11 @@ func main() {
 			EnvVar: "RANCHER_SERVICE_LISTEN_PORT",
 		},
 		cli.StringFlag{
+			Name:   "base-fqdn",
+			Value:  "lb.rancher.cloud",
+			EnvVar: "RANCHER_BASE_FQDN",
+		},
+		cli.StringFlag{
 			Name:   "backend",
 			Value:  "etcd",
 			EnvVar: "RANCHER_SERVICE_BACKEND",
@@ -69,7 +74,7 @@ func appMain(ctx *cli.Context) error {
 	switch ctx.String("backend") {
 	case etcd.BackendName:
 		etcdEndpoints := strings.Split(ctx.String("etcd-endpoints"), ",")
-		b, err = etcd.NewEtcdBackend(etcdEndpoints, ctx.String("etcd-prepath"))
+		b, err = etcd.NewEtcdBackend(etcdEndpoints, ctx.String("etcd-prepath"), ctx.String("base-fqdn"))
 	default:
 		err = errors.Errorf("Failed to find backend %s", ctx.String("backend"))
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -16,15 +17,18 @@ const (
 	BackendName  = "etcd"
 	ValueHostKey = "host"
 	DefaultTTL   = "240h"
+
+	maxSlugHashTimes = 100
 )
 
 type BackendOperator struct {
 	kapi     client.KeysAPI
 	prePath  string
 	duration time.Duration
+	baseFqdn string
 }
 
-func NewEtcdBackend(endpoints []string, prePath string) (*BackendOperator, error) {
+func NewEtcdBackend(endpoints []string, prePath string, baseFqdn string) (*BackendOperator, error) {
 	logrus.Debugf("Etcd init...")
 	cfg := client.Config{
 		Endpoints: endpoints,
@@ -43,7 +47,7 @@ func NewEtcdBackend(endpoints []string, prePath string) (*BackendOperator, error
 		return nil, err
 	}
 
-	return &BackendOperator{kapi, prePath, duration}, nil
+	return &BackendOperator{kapi, prePath, duration, baseFqdn}, nil
 }
 
 func (e *BackendOperator) path(domainName string) string {
@@ -164,7 +168,18 @@ func (e *BackendOperator) Get(dopts *model.DomainOptions) (d model.Domain, err e
 
 func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("Create in etcd: Got the domain options entry: %s", dopts.String())
-	path := e.path(dopts.Fqdn)
+	var path string
+	for i := 0; i < maxSlugHashTimes; i++ {
+		fqdn := fmt.Sprintf("%s.%s", generateSlug(), e.baseFqdn)
+		path = e.path(fqdn)
+
+		// check if this path exists and use this path if not exist
+		_, err := e.kapi.Get(context.Background(), path, nil)
+		if client.IsKeyNotFound(err) {
+			dopts.Fqdn = fqdn
+			break
+		}
+	}
 
 	d, err = e.set(path, dopts, false)
 	if err != nil {
@@ -238,4 +253,17 @@ func sliceToMap(ss []string) map[string]bool {
 		m[s] = true
 	}
 	return m
+}
+
+// generateSlug will generate a random slug to be used as shorten link.
+func generateSlug() string {
+	// It doesn't exist! Generate a new slug for it
+	// From: http://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
+	var chars = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
+	s := make([]rune, 6)
+	for i := range s {
+		s[i] = chars[rand.Intn(len(chars))]
+	}
+
+	return string(s)
 }
