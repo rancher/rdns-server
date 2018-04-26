@@ -22,13 +22,13 @@ const (
 )
 
 type BackendOperator struct {
-	kapi     client.KeysAPI
-	prePath  string
-	duration time.Duration
-	baseFqdn string
+	kapi       client.KeysAPI
+	prePath    string
+	duration   time.Duration
+	rootDomain string
 }
 
-func NewEtcdBackend(endpoints []string, prePath string, baseFqdn string) (*BackendOperator, error) {
+func NewEtcdBackend(endpoints []string, prePath string, rootDomain string) (*BackendOperator, error) {
 	logrus.Debugf("Etcd init...")
 	cfg := client.Config{
 		Endpoints: endpoints,
@@ -47,7 +47,7 @@ func NewEtcdBackend(endpoints []string, prePath string, baseFqdn string) (*Backe
 		return nil, err
 	}
 
-	return &BackendOperator{kapi, prePath, duration, baseFqdn}, nil
+	return &BackendOperator{kapi, prePath, duration, rootDomain}, nil
 }
 
 func (e *BackendOperator) path(domainName string) string {
@@ -170,7 +170,7 @@ func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, er
 	logrus.Debugf("Create in etcd: Got the domain options entry: %s", dopts.String())
 	var path string
 	for i := 0; i < maxSlugHashTimes; i++ {
-		fqdn := fmt.Sprintf("%s.%s", generateSlug(), e.baseFqdn)
+		fqdn := fmt.Sprintf("%s.%s", generateSlug(), e.rootDomain)
 		path = e.path(fqdn)
 
 		// check if this path exists and use this path if not exist
