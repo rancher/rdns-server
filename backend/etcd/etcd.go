@@ -190,10 +190,17 @@ func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, er
 }
 
 func (e *BackendOperator) Update(dopts *model.DomainOptions) (d model.Domain, err error) {
+	exist := false
 	logrus.Debugf("Update in etcd: Got the domain options entry: %s", dopts.String())
 	path := e.path(dopts.Fqdn)
 
-	d, err = e.set(path, dopts, true)
+	resp, err := e.kapi.Get(context.Background(), path, &client.GetOptions{})
+	if err == nil && resp != nil && resp.Node.Dir {
+		logrus.Debugf("%s: is a directory", resp.Node.Key)
+		exist = true
+	}
+
+	d, err = e.set(path, dopts, exist)
 	return d, err
 }
 
