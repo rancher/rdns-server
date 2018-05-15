@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"github.com/niusmallnan/rdns-server/model"
+	"github.com/rancher/rdns-server/model"
 	"github.com/sirupsen/logrus"
 )
 

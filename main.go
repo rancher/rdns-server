@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/niusmallnan/rdns-server/backend"
-	"github.com/niusmallnan/rdns-server/backend/etcd"
-	"github.com/niusmallnan/rdns-server/service"
 	"github.com/pkg/errors"
+	"github.com/rancher/rdns-server/backend"
+	"github.com/rancher/rdns-server/backend/etcd"
+	"github.com/rancher/rdns-server/service"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
