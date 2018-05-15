@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/client"
-	"github.com/niusmallnan/rdns-server/model"
+	"github.com/rancher/rdns-server/model"
 	"github.com/sirupsen/logrus"
 )
 

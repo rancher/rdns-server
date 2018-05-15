@@ -6,8 +6,8 @@ import (
 
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
-	"github.com/niusmallnan/rdns-server/backend"
-	"github.com/niusmallnan/rdns-server/model"
+	"github.com/rancher/rdns-server/backend"
+	"github.com/rancher/rdns-server/model"
 	"github.com/sirupsen/logrus"
 )
 
