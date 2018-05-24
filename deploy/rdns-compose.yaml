@@ -1,0 +1,31 @@
+version: '2'
+
+services:
+  coredns:
+    image: niusmallnan/coredns:v1.1.1-rancher
+    network_mode: host
+    volumes:
+    - ./corefile:/etc/corefile
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-file: '2'
+        max-size: 25m
+    command:
+    - -conf
+    - /etc/corefile
+    - -dns.port
+    - "53"
+
+  rdns-server:
+    image: niusmallnan/rdns-server:v0.3.2
+    network_mode: host
+    environment:
+    - RANCHER_ETCD_ENDPOINTS=http://127.0.0.1:2379
+    logging:
+      driver: json-file
+      options:
+        max-file: '2'
+        max-size: 25m
+
