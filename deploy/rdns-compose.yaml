@@ -19,8 +19,9 @@ services:
     - "53"
 
   rdns-server:
-    image: niusmallnan/rdns-server:v0.3.2
+    image: niusmallnan/rdns-server:v0.3.3
     network_mode: host
+    restart: always
     environment:
     - RANCHER_ETCD_ENDPOINTS=http://127.0.0.1:2379
     logging:
