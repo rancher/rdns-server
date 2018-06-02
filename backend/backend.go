@@ -13,6 +13,7 @@ type Backend interface {
 	Update(dopts *model.DomainOptions) (model.Domain, error)
 	Delete(dopts *model.DomainOptions) error
 	Renew(dopts *model.DomainOptions) (model.Domain, error)
+	GetTokenOrigin(fqdn string) (string, error)
 }
 
 func SetBackend(b Backend) {

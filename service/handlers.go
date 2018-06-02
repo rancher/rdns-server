@@ -41,7 +41,11 @@ func returnSuccess(w http.ResponseWriter, d model.Domain, msg string) {
 }
 
 func returnSuccessWithToken(w http.ResponseWriter, d model.Domain, msg string) {
-	token := generateToken(d.Fqdn)
+	token, err := generateToken(d.Fqdn)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
 	o := model.Response{
 		Status:  http.StatusOK,
 		Message: msg,

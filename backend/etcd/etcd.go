@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/coreos/etcd/client"
 	"github.com/rancher/rdns-server/model"
+	"github.com/rancher/rdns-server/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,6 +19,7 @@ const (
 	DefaultTTL   = "240h"
 
 	maxSlugHashTimes = 100
+	tokenOriginPath  = "/token_origin"
 )
 
 type BackendOperator struct {
@@ -54,6 +55,10 @@ func (e *BackendOperator) path(domainName string) string {
 	return e.prePath + convertToPath(domainName)
 }
 
+func (e *BackendOperator) tokenOriginPath(domainName string) string {
+	return tokenOriginPath + "/" + formatKey(domainName)
+}
+
 func (e *BackendOperator) lookupHosts(path string) (hosts []string, err error) {
 	opts := &client.GetOptions{Recursive: true}
 	resp, err := e.kapi.Get(context.Background(), path, opts)
@@ -72,6 +77,11 @@ func (e *BackendOperator) lookupHosts(path string) (hosts []string, err error) {
 }
 
 func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOptions) (d model.Domain, err error) {
+	err = e.setTokenOrigin(dopts, true)
+	if err != nil {
+		return d, err
+	}
+
 	logrus.Debugf("Etcd: refresh dir TTL: %s", path)
 	opts := &client.SetOptions{TTL: e.duration, Dir: true, PrevExist: client.PrevExist}
 	resp, err := e.kapi.Set(context.Background(), path, "", opts)
@@ -90,12 +100,39 @@ func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOpti
 	return d, err
 }
 
+func (e *BackendOperator) setTokenOrigin(dopts *model.DomainOptions, exist bool) error {
+	var tokenOrigin string
+	opts := &client.SetOptions{TTL: e.duration}
+	if exist {
+		opts.PrevExist = client.PrevExist
+	}
+	tokenOriginPath := e.tokenOriginPath(dopts.Fqdn)
+	resp, err := e.kapi.Get(context.Background(), tokenOriginPath, nil)
+	if resp != nil {
+		tokenOrigin = resp.Node.Value
+		logrus.Debugf("setTokenOrigin: Got an exist token origin: %s", tokenOrigin)
+	} else {
+		tokenOrigin = generateTokenOrigin()
+		logrus.Debugf("setTokenOrigin: Generrated a new token origin: %s", tokenOrigin)
+	}
+
+	logrus.Debugf("Etcd: set a path for token origin: %s, %s", tokenOriginPath, tokenOrigin)
+	_, err = e.kapi.Set(context.Background(), tokenOriginPath, tokenOrigin, opts)
+	return err
+}
+
 func (e *BackendOperator) set(path string, dopts *model.DomainOptions, exist bool) (d model.Domain, err error) {
+	err = e.setTokenOrigin(dopts, exist)
+	if err != nil {
+		return d, err
+	}
+
+	// set domain record
+	logrus.Debugf("Etcd: set a dir for record: %s", path)
 	opts := &client.SetOptions{TTL: e.duration, Dir: true}
 	if exist {
 		opts.PrevExist = client.PrevExist
 	}
-	logrus.Debugf("Etcd: make a dir: %s", path)
 	resp, err := e.kapi.Set(context.Background(), path, "", opts)
 	if err != nil {
 		return d, err
@@ -175,7 +212,7 @@ func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, er
 
 		// check if this path exists and use this path if not exist
 		_, err := e.kapi.Get(context.Background(), path, nil)
-		if client.IsKeyNotFound(err) {
+		if err != nil && client.IsKeyNotFound(err) {
 			dopts.Fqdn = fqdn
 			break
 		}
@@ -221,6 +258,20 @@ func (e *BackendOperator) Delete(dopts *model.DomainOptions) error {
 	return err
 }
 
+func (e *BackendOperator) GetTokenOrigin(fqdn string) (string, error) {
+	logrus.Debugf("Get key for token in etcd: fqdn: %s", fqdn)
+	tokenOriginPath := e.tokenOriginPath(fqdn)
+	resp, err := e.kapi.Get(context.Background(), tokenOriginPath, nil)
+	if err != nil {
+		return "", err
+	}
+
+	origin := resp.Node.Value
+	logrus.Debugf("The token origin is %s", origin)
+
+	return origin, nil
+}
+
 // convertToPath
 // zhibo.test.rancher.local => /local/rancher/test/zhibo
 func convertToPath(domain string) string {
@@ -250,6 +301,7 @@ func formatValue(value string) string {
 
 // formatKey
 // 1.1.1.1 => 1_1_1_1
+// abcdef.lb.rancher.cloud => abcdef_lb_rancher_cloud
 func formatKey(key string) string {
 	return strings.Replace(key, ".", "_", -1)
 }
@@ -264,13 +316,9 @@ func sliceToMap(ss []string) map[string]bool {
 
 // generateSlug will generate a random slug to be used as shorten link.
 func generateSlug() string {
-	// It doesn't exist! Generate a new slug for it
-	// From: http://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
-	var chars = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
-	s := make([]rune, 6)
-	for i := range s {
-		s[i] = chars[rand.Intn(len(chars))]
-	}
+	return util.RandString(6)
+}
 
-	return string(s)
+func generateTokenOrigin() string {
+	return util.RandString(32)
 }
