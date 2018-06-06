@@ -19,7 +19,7 @@ services:
     - "53"
 
   rdns-server:
-    image: niusmallnan/rdns-server:v0.3.3
+    image: niusmallnan/rdns-server:v0.3.4
     network_mode: host
     restart: always
     environment:
