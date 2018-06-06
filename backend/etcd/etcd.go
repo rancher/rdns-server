@@ -20,6 +20,9 @@ const (
 
 	maxSlugHashTimes = 100
 	tokenOriginPath  = "/token_origin"
+
+	slugLength        = 6
+	tokenOriginLength = 32
 )
 
 type BackendOperator struct {
@@ -316,9 +319,9 @@ func sliceToMap(ss []string) map[string]bool {
 
 // generateSlug will generate a random slug to be used as shorten link.
 func generateSlug() string {
-	return util.RandString(6)
+	return util.RandStringWithSmall(slugLength)
 }
 
 func generateTokenOrigin() string {
-	return util.RandString(32)
+	return util.RandStringWithAll(tokenOriginLength)
 }
