@@ -68,8 +68,9 @@ func compareToken(fqdn, token string) bool {
 
 func tokenMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// createDomain and getDomain have no need to check token
-		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		// createDomain and ping have no need to check token
+		logrus.Debugf("Request URL path: %s", r.URL.Path)
+		if r.Method != http.MethodPost && !strings.HasPrefix(r.URL.Path, "/ping") {
 			authorization := r.Header.Get("Authorization")
 			token := strings.TrimLeft(authorization, "Bearer ")
 			fqdn, ok := mux.Vars(r)["fqdn"]
