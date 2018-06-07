@@ -1,11 +1,14 @@
 . {
+    file /etc/api.lb.rancher.cloud.dbfile api.lb.rancher.cloud {
+        no_reload
+    }
     etcd lb.rancher.cloud {
         path /rdns
         endpoint http://localhost:2379
         upstream 8.8.8.8:53 8.8.4.4:53
         wildcardbound 4
     }
-    cache 160 lb.rancher.cloud
+    cache 60 lb.rancher.cloud
     loadbalance
     proxy . 8.8.8.8:53 8.8.4.4:53
     log stdout

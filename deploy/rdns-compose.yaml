@@ -5,7 +5,8 @@ services:
     image: niusmallnan/coredns:v1.1.1-rancher
     network_mode: host
     volumes:
-    - ./corefile:/etc/corefile
+    - ./config/corefile:/etc/corefile
+    - ./config/api.lb.rancher.cloud.dbfile:/etc/api.lb.rancher.cloud.dbfile
     restart: always
     logging:
       driver: json-file
