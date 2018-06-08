@@ -1,0 +1,6 @@
+$ORIGIN dns.lb.rancher.cloud.     ; designates the start of this zone file in the namespace
+$TTL 1h                           ; default expiration time of all resource records without their own TTL value
+
+@                                       IN  SOA      ns.lb.rancher.cloud niusmallnan.gmail.com 201806071 10800 3600 604800 3600
+ns1.ns                                  IN  A        13.56.60.45
+ns2.ns                                  IN  A        52.52.247.72

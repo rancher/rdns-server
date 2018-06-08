@@ -5,8 +5,7 @@ services:
     image: niusmallnan/coredns:v1.1.1-rancher
     network_mode: host
     volumes:
-    - ./config/corefile:/etc/corefile
-    - ./config/api.lb.rancher.cloud.dbfile:/etc/api.lb.rancher.cloud.dbfile
+    - ./config:/etc/config
     restart: always
     logging:
       driver: json-file
@@ -15,7 +14,7 @@ services:
         max-size: 25m
     command:
     - -conf
-    - /etc/corefile
+    - /etc/config/corefile
     - -dns.port
     - "53"
 

@@ -50,15 +50,6 @@ zhibo.lb.rancher.cloud. 160	IN	A	2.2.2.2
 zhibo.lb.rancher.cloud. 160	IN	A	1.1.1.1
 ```
 
-### Add ns records
-
-For DNS to work properly CoreDNS needs to tell its parents its nameservers.
-
-```
-etcdctl set /rdns/cloud/rancher/lb/dns/ns/ns1 '{"host":"ip1"}'
-etcdctl set /rdns/cloud/rancher/lb/dns/ns/ns2 '{"host":"ip2"}'
-```
-
 ## Backup and Restore
 
 ### Dependencies
