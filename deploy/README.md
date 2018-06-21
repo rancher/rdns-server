@@ -18,15 +18,15 @@ If you want to use other root domain, you can update the `corefile`. This demo u
 According to the root domain, create the corresponding path in etcd:
 
 ```
-$ etcdctl mkdir /rdns/lb/rancher/cloud
+$ etcdctl mkdir /rdns/cloud/rancher/lb
 ```
 
 ### Add test records
 
 ```
-$ etcdctl set /rdns/lb/rancher/cloud/zhibo/x1 '{"host":"1.1.1.1"}'
+$ etcdctl set /rdns/cloud/rancher/lb/zhibo/x1 '{"host":"1.1.1.1"}'
 {"host":"1.1.1.1"}
-$ etcdctl set /rdns/lb/rancher/cloud/zhibo/x2 '{"host":"2.2.2.2"}'
+$ etcdctl set /rdns/cloud/rancher/lb/zhibo/x2 '{"host":"2.2.2.2"}'
 {"host":"2.2.2.2"}
 ```
 
