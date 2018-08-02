@@ -41,6 +41,15 @@ func generateToken(fqdn string) (string, error) {
 }
 
 func compareToken(fqdn, token string) bool {
+	// normal text record & acme text record need special treatment
+	fqdnLen := len(strings.Split(fqdn, "."))
+	rootDomainLen := len(strings.Split(rootDomain, "."))
+	diffLen := fqdnLen - rootDomainLen
+	if diffLen > 1 {
+		sp := strings.SplitAfterN(fqdn, ".", diffLen)
+		fqdn = sp[len(sp)-1]
+	}
+
 	hash, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
 		logrus.Errorf("Failed to decode token: %s", fqdn)
@@ -70,7 +79,8 @@ func tokenMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// createDomain and ping have no need to check token
 		logrus.Debugf("Request URL path: %s", r.URL.Path)
-		if r.Method != http.MethodPost && !strings.HasPrefix(r.URL.Path, "/ping") {
+		if (r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/txt")) ||
+			(r.Method != http.MethodPost && !strings.HasPrefix(r.URL.Path, "/ping")) {
 			authorization := r.Header.Get("Authorization")
 			token := strings.TrimLeft(authorization, "Bearer ")
 			fqdn, ok := mux.Vars(r)["fqdn"]

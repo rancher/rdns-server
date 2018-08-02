@@ -157,6 +157,75 @@ func deleteDomain(w http.ResponseWriter, r *http.Request) {
 	returnSuccessNoData(w)
 }
 
+func createDomainText(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+	opts, err := model.ParseDomainOptions(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+	opts.Fqdn = fqdn
+
+	b := backend.GetBackend()
+	d, err := b.CreateText(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccess(w, d, "")
+}
+
+func getDomainText(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+	msg := ""
+
+	opts := &model.DomainOptions{Fqdn: fqdn}
+	b := backend.GetBackend()
+	d, err := b.GetText(opts)
+	if err != nil {
+		msg = err.Error()
+	}
+	returnSuccess(w, d, msg)
+}
+
+func updateDomainText(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+
+	opts, err := model.ParseDomainOptions(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+	opts.Fqdn = fqdn
+	b := backend.GetBackend()
+	d, err := b.UpdateText(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccess(w, d, "")
+}
+
+func deleteDomainText(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+
+	opts := &model.DomainOptions{Fqdn: fqdn}
+	b := backend.GetBackend()
+	err := b.DeleteText(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccessNoData(w)
+}
+
 func ping(w http.ResponseWriter, r *http.Request) {
 	returnSuccessNoData(w)
 }

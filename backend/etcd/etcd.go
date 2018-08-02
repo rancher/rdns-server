@@ -16,6 +16,7 @@ import (
 const (
 	BackendName  = "etcd"
 	ValueHostKey = "host"
+	ValueTextKey = "text"
 	DefaultTTL   = "240h"
 
 	maxSlugHashTimes = 100
@@ -100,6 +101,32 @@ func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOpti
 	d.Fqdn = dopts.Fqdn
 	d.Hosts = curHosts
 	d.Expiration = resp.Node.Expiration
+
+	// acme text record should be refresh expiration
+	getOpts := &client.GetOptions{Sort: true, Recursive: true}
+	getResp, err := e.kapi.Get(context.Background(), e.prePath+"/_txt/_acme-challenge", getOpts)
+	if err != nil {
+		return d, err
+	}
+
+	subKeys := nodesToStringSlice(getResp.Node.Nodes)
+	for _, key := range subKeys {
+		splits := strings.Split(dopts.Fqdn, ".")
+		source := strings.Join(splits, "/")
+		if strings.Contains(key, source) {
+			// get value and refresh expiration
+			getResp, err = e.kapi.Get(context.Background(), key, &client.GetOptions{})
+			if err != nil {
+				return d, err
+			}
+			acmeOpts := &client.SetOptions{TTL: e.duration, PrevExist: client.PrevExist}
+			_, err := e.kapi.Set(context.Background(), key, getResp.Node.Value, acmeOpts)
+			if err != nil {
+				return d, err
+			}
+		}
+	}
+
 	return d, err
 }
 
@@ -175,6 +202,24 @@ func (e *BackendOperator) set(path string, dopts *model.DomainOptions, exist boo
 
 	d.Fqdn = dopts.Fqdn
 	d.Hosts = dopts.Hosts
+	d.Expiration = resp.Node.Expiration
+	logrus.Debugf("Finished to set a domain entry: %s", d.String())
+
+	return d, nil
+}
+
+func (e *BackendOperator) setText(path string, dopts *model.DomainOptions, exist bool) (d model.Domain, err error) {
+	opts := &client.SetOptions{TTL: e.duration}
+	if exist {
+		opts.PrevExist = client.PrevExist
+	}
+	resp, err := e.kapi.Set(context.Background(), path, formatTextValue(dopts.Text), opts)
+	if err != nil {
+		return d, err
+	}
+
+	d.Fqdn = dopts.Fqdn
+	d.Text = dopts.Text
 	d.Expiration = resp.Node.Expiration
 	logrus.Debugf("Finished to set a domain entry: %s", d.String())
 
@@ -261,6 +306,111 @@ func (e *BackendOperator) Delete(dopts *model.DomainOptions) error {
 	return err
 }
 
+func (e *BackendOperator) CreateText(dopts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("Create in etcd: Got the domain options entry: %s", dopts.String())
+
+	fqdn := dopts.Fqdn
+	var path string
+	// acme text record: _acme-challenge.x1.lb.rancher.cloud
+	if strings.Contains(fqdn, "_acme-challenge") {
+		// need save to the path /rdns/_txt/_acme-challenge/x1/lb/rancher/cloud
+		temp := fmt.Sprintf("%s.%s", "_txt", fqdn)
+		tempSlice := strings.Split(temp, ".")
+		path = fmt.Sprintf("%s/%s", e.prePath, strings.Join(tempSlice, "/"))
+	} else {
+		// normal text record: xxxx.lb.rancher.cloud
+		path = e.path(fqdn)
+	}
+
+	exist := true
+	// check if this path exists
+	_, err = e.kapi.Get(context.Background(), path, nil)
+	if err != nil && client.IsKeyNotFound(err) {
+		exist = false
+	}
+
+	d, err = e.setText(path, dopts, exist)
+	if err != nil {
+		return d, err
+	}
+
+	return d, err
+}
+
+func (e *BackendOperator) GetText(dopts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("Get in etcd: Got the domain options entry: %s", dopts.String())
+	fqdn := dopts.Fqdn
+	var path string
+	// acme text record: _acme-challenge.x1.lb.rancher.cloud
+	if strings.Contains(fqdn, "_acme-challenge") {
+		// need save to the path /rdns/_txt/_acme-challenge/x1/lb/rancher/cloud
+		temp := fmt.Sprintf("%s.%s", "_txt", fqdn)
+		tempSlice := strings.Split(temp, ".")
+		path = fmt.Sprintf("%s/%s", e.prePath, strings.Join(tempSlice, "/"))
+	} else {
+		// normal text record: xxxx.lb.rancher.cloud
+		path = e.path(fqdn)
+	}
+
+	//opts := &client.GetOptions{Recursive: true}
+	resp, err := e.kapi.Get(context.Background(), path, nil)
+	if err != nil {
+		return d, err
+	}
+
+	d.Fqdn = dopts.Fqdn
+	d.Expiration = resp.Node.Expiration
+	d.Text = resp.Node.Value
+
+	return d, nil
+}
+
+func (e *BackendOperator) UpdateText(dopts *model.DomainOptions) (d model.Domain, err error) {
+	exist := false
+	logrus.Debugf("Update in etcd: Got the domain options entry: %s", dopts.String())
+	fqdn := dopts.Fqdn
+	var path string
+	// acme text record: _acme-challenge.x1.lb.rancher.cloud
+	if strings.Contains(fqdn, "_acme-challenge") {
+		// need save to the path /rdns/_txt/_acme-challenge/x1/lb/rancher/cloud
+		temp := fmt.Sprintf("%s.%s", "_txt", fqdn)
+		tempSlice := strings.Split(temp, ".")
+		path = fmt.Sprintf("%s/%s", e.prePath, strings.Join(tempSlice, "/"))
+	} else {
+		// normal text record: xxxx.lb.rancher.cloud
+		path = e.path(fqdn)
+	}
+
+	resp, err := e.kapi.Get(context.Background(), path, &client.GetOptions{})
+	if err == nil && resp != nil && resp.Node.Dir {
+		logrus.Debugf("%s: is a directory", resp.Node.Key)
+		exist = true
+	}
+
+	d, err = e.setText(path, dopts, exist)
+	return d, err
+}
+
+func (e *BackendOperator) DeleteText(dopts *model.DomainOptions) error {
+	logrus.Debugf("Delete in etcd: Got the domain options entry: %s", dopts.String())
+	fqdn := dopts.Fqdn
+	var path string
+	// acme text record: _acme-challenge.x1.lb.rancher.cloud
+	if strings.Contains(fqdn, "_acme-challenge") {
+		// need save to the path /rdns/_txt/_acme-challenge/x1/lb/rancher/cloud
+		temp := fmt.Sprintf("%s.%s", "_txt", fqdn)
+		tempSlice := strings.Split(temp, ".")
+		path = fmt.Sprintf("%s/%s", e.prePath, strings.Join(tempSlice, "/"))
+	} else {
+		// normal text record: xxxx.lb.rancher.cloud
+		path = e.path(fqdn)
+	}
+
+	opts := &client.DeleteOptions{Dir: true, Recursive: true}
+	_, err := e.kapi.Delete(context.Background(), path, opts)
+	return err
+}
+
 func (e *BackendOperator) GetTokenOrigin(fqdn string) (string, error) {
 	logrus.Debugf("Get key for token in etcd: fqdn: %s", fqdn)
 	tokenOriginPath := e.tokenOriginPath(fqdn)
@@ -302,6 +452,10 @@ func formatValue(value string) string {
 	return fmt.Sprintf("{\"%s\":\"%s\"}", ValueHostKey, value)
 }
 
+func formatTextValue(value string) string {
+	return fmt.Sprintf("{\"%s\":\"%s\"}", ValueTextKey, value)
+}
+
 // formatKey
 // 1.1.1.1 => 1_1_1_1
 // abcdef.lb.rancher.cloud => abcdef_lb_rancher_cloud
@@ -324,4 +478,18 @@ func generateSlug() string {
 
 func generateTokenOrigin() string {
 	return util.RandStringWithAll(tokenOriginLength)
+}
+
+func nodesToStringSlice(nodes client.Nodes) []string {
+	var keys []string
+
+	for _, node := range nodes {
+		keys = append(keys, node.Key)
+
+		for _, key := range nodesToStringSlice(node.Nodes) {
+			keys = append(keys, key)
+		}
+	}
+
+	return keys
 }

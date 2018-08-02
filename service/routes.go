@@ -16,6 +16,8 @@ type Route struct {
 
 type Routes []Route
 
+var rootDomain string
+
 var routes = Routes{
 	Route{
 		"ping",
@@ -53,10 +55,36 @@ var routes = Routes{
 		"/v1/domain/{fqdn}/renew",
 		renewDomain,
 	},
+	Route{
+		"createDomainText",
+		"POST",
+		"/v1/domain/{fqdn}/txt",
+		createDomainText,
+	},
+	Route{
+		"getDomainText",
+		"GET",
+		"/v1/domain/{fqdn}/txt",
+		getDomainText,
+	},
+	Route{
+		"updateDomainText",
+		"PUT",
+		"/v1/domain/{fqdn}/txt",
+		updateDomainText,
+	},
+	Route{
+		"deleteDomainText",
+		"DELETE",
+		"/v1/domain/{fqdn}/txt",
+		deleteDomainText,
+	},
 }
 
-func NewRouter() *mux.Router {
+func NewRouter(r string) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
+
+	rootDomain = r
 
 	logrus.Debugf("Setting HTTP handlers")
 	for _, route := range routes {

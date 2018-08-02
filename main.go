@@ -86,7 +86,7 @@ func appMain(ctx *cli.Context) error {
 	done := make(chan error)
 
 	go func() {
-		router := service.NewRouter()
+		router := service.NewRouter(ctx.String("root-domain"))
 		done <- http.ListenAndServe(ctx.String("listen"), router)
 	}()
 
