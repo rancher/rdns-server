@@ -13,6 +13,10 @@ type Backend interface {
 	Update(dopts *model.DomainOptions) (model.Domain, error)
 	Delete(dopts *model.DomainOptions) error
 	Renew(dopts *model.DomainOptions) (model.Domain, error)
+	CreateText(dopts *model.DomainOptions) (model.Domain, error)
+	GetText(dopts *model.DomainOptions) (model.Domain, error)
+	UpdateText(dopts *model.DomainOptions) (model.Domain, error)
+	DeleteText(dopts *model.DomainOptions) error
 	GetTokenOrigin(fqdn string) (string, error)
 }
 
