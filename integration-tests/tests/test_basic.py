@@ -7,7 +7,11 @@ from common import BASE_URL
 def test_server_apis():  # NOQA
     # test create
     url = build_url(BASE_URL, "", "")
-    response = create_domain_test(url, {'fqdn': '', 'hosts': ["1.1.1.1", "3.3.3.3"]})
+    response = create_domain_test(url,
+                                  {
+                                      'fqdn': '',
+                                      'hosts': ["1.1.1.1", "3.3.3.3"]
+                                  })
     assert response != ""
     result = response.json()
     assert result['status'] == 200
@@ -19,14 +23,38 @@ def test_server_apis():  # NOQA
     for host in result['data']['hosts']:
         assert host in ["1.1.1.1", "3.3.3.3"]
 
+    # test create acme text record
+    acme_url = build_url(BASE_URL, "/_acme-challenge." + fqdn, "/txt")
+    response = create_domain_text_test(acme_url,
+                                       token,
+                                       {"text": "acme challenge record"})
+    assert response != ""
+    result = response.json()
+    assert result['status'] == 200
+    assert result['data']['fqdn'] != ""
+    acme_expiration_time = result['data']['expiration']
+    assert result['data']['text'] == "acme challenge record"
+
     # test update
     url = build_url(BASE_URL, "/" + fqdn, "")
-    response = update_domain_test(url, token, {'fqdn': '', 'hosts': ["2.2.2.2"]})
+    response = update_domain_test(url,
+                                  token,
+                                  {'fqdn': '', 'hosts': ["2.2.2.2"]})
     assert response != ""
     result = response.json()
     assert result['status'] == 200
     for host in result['data']['hosts']:
         assert host in ["2.2.2.2"]
+
+    # test update acme text record
+    acme_url = build_url(BASE_URL, "/_acme-challenge." + fqdn, "/txt")
+    response = update_domain_test(acme_url,
+                                  token,
+                                  {"text": "acme challenge record updated"})
+    assert response != ""
+    result = response.json()
+    assert result['status'] == 200
+    assert result['data']['text'] == "acme challenge record updated"
 
     # test renew
     url = build_url(BASE_URL, "/" + fqdn, "/renew")
@@ -36,9 +64,25 @@ def test_server_apis():  # NOQA
     assert result['status'] == 200
     assert result['data']['expiration'] > expiration_time
 
+    # test renew acme text record
+    acme_url = build_url(BASE_URL, "/_acme-challenge." + fqdn, "/txt")
+    response = get_domain_test(acme_url, token)
+    assert response != ""
+    result = response.json()
+    assert result['status'] == 200
+    assert result['data']['expiration'] > acme_expiration_time
+
     # test delete
     url = build_url(BASE_URL, "/" + fqdn, "")
     response = delete_domain_test(url, token)
+    assert response != ""
+    result = response.json()
+    assert result['status'] == 200
+
+    # test delete acme text record
+    acme_url = build_url(BASE_URL,
+                         "/_acme-challenge." + fqdn, "/txt")
+    response = delete_domain_test(acme_url, token)
     assert response != ""
     result = response.json()
     assert result['status'] == 200
@@ -51,10 +95,25 @@ def test_server_apis():  # NOQA
     assert result['status'] == 200
     assert result['data'] == {}
 
+    # check acme text record
+    acme_url = build_url(BASE_URL, "/_acme-challenge." + fqdn, "/txt")
+    response = get_domain_test(acme_url, token)
+    assert response != ""
+    result = response.json()
+    assert result['status'] == 200
+    assert result['data'] == {}
+
 
 # This method creates the domain
 def create_domain_test(url, data):
     headers = build_header("")
+    response = requests.post(url, data=json.dumps(data), headers=headers)
+    return response
+
+
+# This method creates the domain text
+def create_domain_text_test(url, token, data):
+    headers = build_header(token)
     response = requests.post(url, data=json.dumps(data), headers=headers)
     return response
 
