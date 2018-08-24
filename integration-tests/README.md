@@ -14,6 +14,6 @@
 
 ### Run the test
 ```
-docker run --name test --rm -e ENV_HOST="172.0.0.1" wchao241/rdns-server-test:latest
+docker run --name test --rm -e ENV_HOST="172.0.0.1" rancher/rdns-server-test:latest
 ```
 >`ENV_HOST` is rdns-server host IP
