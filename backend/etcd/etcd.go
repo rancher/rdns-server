@@ -80,6 +80,18 @@ func (e *BackendOperator) lookupHosts(path string) (hosts []string, err error) {
 	return hosts, nil
 }
 
+func (e *BackendOperator) lookupSubPath(path string) (paths []string, err error) {
+	opts := &client.GetOptions{Recursive: true}
+	resp, err := e.kapi.Get(context.Background(), path, opts)
+	if err != nil {
+		return paths, err
+	}
+	for _, n := range resp.Node.Nodes {
+		paths = append(paths, n.Key)
+	}
+	return paths, nil
+}
+
 func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOptions) (d model.Domain, err error) {
 	err = e.setTokenOrigin(dopts, true)
 	if err != nil {
@@ -101,6 +113,36 @@ func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOpti
 	d.Fqdn = dopts.Fqdn
 	d.Hosts = curHosts
 	d.Expiration = resp.Node.Expiration
+
+	// sub-domain record should be refresh expiration
+	subDomain := make(map[string][]string, 0)
+
+	// sub-domain record: _sub-domain.xxx.x1.lb.rancher.cloud [1.1.1.1,2.2.2.2]
+	// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/1.1.1.1
+	// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/2.2.2.2
+	subDomainRoot := fmt.Sprintf("%s.%s", "_sub-domain", dopts.Fqdn)
+	subDomainRootSlice := strings.Split(subDomainRoot, ".")
+	subDomainPath := fmt.Sprintf("%s/%s", e.prePath, strings.Join(subDomainRootSlice, "/"))
+	subPath, err := e.lookupSubPath(subDomainPath)
+
+	for _, p := range subPath {
+		// create sub-domain path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx
+		opts := &client.SetOptions{TTL: e.duration, Dir: true, PrevExist: client.PrevExist}
+		_, err := e.kapi.Set(context.Background(), p, "", opts)
+		if err != nil {
+			return d, err
+		}
+		// get current hosts
+		curHosts, err := e.lookupHosts(p)
+		if err != nil {
+			return d, err
+		}
+
+		slice := strings.Split(p, "/")
+		subDomain[slice[len(slice)-1]] = curHosts
+	}
+
+	d.SubDomain = subDomain
 
 	// acme text record should be refresh expiration
 	getOpts := &client.GetOptions{Sort: true, Recursive: true}
@@ -203,9 +245,83 @@ func (e *BackendOperator) set(path string, dopts *model.DomainOptions, exist boo
 	d.Fqdn = dopts.Fqdn
 	d.Hosts = dopts.Hosts
 	d.Expiration = resp.Node.Expiration
-	logrus.Debugf("Finished to set a domain entry: %s", d.String())
 
+	// create sub-domain if exists.
+	subDomain, err := e.setSubDomain(dopts)
+	if err != nil {
+		return d, err
+	}
+	d.SubDomain = subDomain
+
+	logrus.Debugf("Finished to set a domain entry: %s", d.String())
 	return d, nil
+}
+
+func (e *BackendOperator) setSubDomain(dopts *model.DomainOptions) (s map[string][]string, err error) {
+	var path string
+	subDomain := make(map[string][]string, 0)
+	fqdn := dopts.Fqdn
+	for subPrefix, subHosts := range dopts.SubDomain {
+		// sub-domain record: _sub-domain.xxx.x1.lb.rancher.cloud [1.1.1.1,2.2.2.2]
+		// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/1.1.1.1
+		// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/2.2.2.2
+		temp := fmt.Sprintf("%s.%s.%s", "_sub-domain", fqdn, subPrefix)
+		tempSlice := strings.Split(temp, ".")
+		path = fmt.Sprintf("%s/%s", e.prePath, strings.Join(tempSlice, "/"))
+
+		// check sub-domain path exist /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/
+		exist := false
+		resp, err := e.kapi.Get(context.Background(), path, &client.GetOptions{})
+		if err == nil && resp != nil && resp.Node.Dir {
+			logrus.Debugf("%s: is a directory", resp.Node.Key)
+			exist = true
+		}
+
+		// create sub-domain path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx
+		opts := &client.SetOptions{TTL: e.duration, Dir: true}
+		if exist {
+			opts.PrevExist = client.PrevExist
+		}
+		_, err = e.kapi.Set(context.Background(), path, "", opts)
+		if err != nil {
+			return subDomain, err
+		}
+
+		// get current hosts
+		curHosts, err := e.lookupHosts(path)
+		if err != nil {
+			return subDomain, err
+		}
+
+		newHostsMap := sliceToMap(subHosts)
+		logrus.Debugf("Got new sub-domain hosts map: %v", newHostsMap)
+		oldHostsMap := sliceToMap(curHosts)
+		logrus.Debugf("Got old sub-domain hosts map: %v", oldHostsMap)
+		for oldh := range oldHostsMap {
+			if _, ok := newHostsMap[oldh]; !ok {
+				key := fmt.Sprintf("%s/%s", path, formatKey(oldh))
+				logrus.Debugf("Etcd: delete a sub-domain key/value: %s:%s", key, formatValue(oldh))
+				_, err := e.kapi.Delete(context.Background(), key, nil)
+				if err != nil {
+					return subDomain, err
+				}
+			}
+		}
+		for newh := range newHostsMap {
+			if _, ok := oldHostsMap[newh]; !ok {
+				key := fmt.Sprintf("%s/%s", path, formatKey(newh))
+				logrus.Debugf("Etcd: set a sub-domain key/value: %s:%s", key, formatValue(newh))
+				_, err := e.kapi.Set(context.Background(), key, formatValue(newh), nil)
+				if err != nil {
+					return subDomain, err
+				}
+			}
+		}
+	}
+
+	subDomain = dopts.SubDomain
+
+	return subDomain, nil
 }
 
 func (e *BackendOperator) setText(path string, dopts *model.DomainOptions, exist bool) (d model.Domain, err error) {
@@ -247,6 +363,29 @@ func (e *BackendOperator) Get(dopts *model.DomainOptions) (d model.Domain, err e
 		}
 		d.Hosts = append(d.Hosts, v[ValueHostKey])
 	}
+
+	// sub-domain information need to be added
+	subDomain := make(map[string][]string, 0)
+	// sub-domain record: _sub-domain.xxx.x1.lb.rancher.cloud [1.1.1.1,2.2.2.2]
+	// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/1.1.1.1
+	// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/2.2.2.2
+	subDomainRoot := fmt.Sprintf("%s.%s", "_sub-domain", dopts.Fqdn)
+	subDomainRootSlice := strings.Split(subDomainRoot, ".")
+	subDomainPath := fmt.Sprintf("%s/%s", e.prePath, strings.Join(subDomainRootSlice, "/"))
+	subPath, err := e.lookupSubPath(subDomainPath)
+
+	for _, p := range subPath {
+		// get current hosts
+		curHosts, err := e.lookupHosts(p)
+		if err != nil {
+			return d, err
+		}
+
+		slice := strings.Split(p, "/")
+		subDomain[slice[len(slice)-1]] = curHosts
+	}
+
+	d.SubDomain = subDomain
 
 	return d, nil
 }
@@ -303,7 +442,21 @@ func (e *BackendOperator) Delete(dopts *model.DomainOptions) error {
 
 	opts := &client.DeleteOptions{Dir: true, Recursive: true}
 	_, err := e.kapi.Delete(context.Background(), path, opts)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// sub-domain path need to be deleted, also. /rdns/_sub-domain/x1/lb/rancher/cloud
+	// sub-domain record: _sub-domain.xxx.x1.lb.rancher.cloud [1.1.1.1,2.2.2.2]
+	// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/1.1.1.1
+	// need save to the path /rdns/_sub-domain/x1/lb/rancher/cloud/xxx/2.2.2.2
+	temp := fmt.Sprintf("%s.%s", "_sub-domain", dopts.Fqdn)
+	tempSlice := strings.Split(temp, ".")
+	subPath := fmt.Sprintf("%s/%s", e.prePath, strings.Join(tempSlice, "/"))
+	if _, err := e.kapi.Delete(context.Background(), subPath, opts); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *BackendOperator) CreateText(dopts *model.DomainOptions) (d model.Domain, err error) {

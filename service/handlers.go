@@ -89,7 +89,6 @@ func createDomain(w http.ResponseWriter, r *http.Request) {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 		return
 	}
-
 	returnSuccessWithToken(w, d, "")
 }
 
