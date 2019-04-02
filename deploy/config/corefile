@@ -2,9 +2,6 @@
     file /etc/config/api.lb.rancher.cloud.dbfile api.lb.rancher.cloud {
         no_reload
     }
-    file /etc/config/dns.lb.rancher.cloud.dbfile dns.lb.rancher.cloud {
-        no_reload
-    }
     etcd lb.rancher.cloud {
         path /rdns
         endpoint http://localhost:2379

@@ -2,7 +2,7 @@ version: '2'
 
 services:
   coredns:
-    image: niusmallnan/coredns:v1.1.1-rancher
+    image: niusmallnan/coredns:v1.1.1-rancher4
     network_mode: host
     volumes:
     - ./config:/etc/config
@@ -19,7 +19,7 @@ services:
     - "53"
 
   rdns-server:
-    image: niusmallnan/rdns-server:v0.3.5
+    image: niusmallnan/rdns-server:v0.4.3
     network_mode: host
     restart: always
     environment:
