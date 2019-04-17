@@ -1,6 +1,6 @@
 . {
     file /etc/config/api.lb.rancher.cloud.dbfile api.lb.rancher.cloud {
-        no_reload
+        reload 0
     }
     etcd lb.rancher.cloud {
         path /rdns
@@ -10,7 +10,7 @@
     }
     cache 60 lb.rancher.cloud
     loadbalance
-    proxy . 8.8.8.8:53 8.8.4.4:53
+    forward . 8.8.8.8:53 8.8.4.4:53
     log stdout
     errors
 }
