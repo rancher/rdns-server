@@ -2,7 +2,7 @@ version: '2'
 
 services:
   coredns:
-    image: niusmallnan/coredns:v1.1.1-rancher4
+    image: niusmallnan/coredns:v1.5.0-rancher
     network_mode: host
     volumes:
     - ./config:/etc/config
