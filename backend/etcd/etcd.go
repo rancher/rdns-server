@@ -147,28 +147,28 @@ func (e *BackendOperator) refreshExpiration(path string, dopts *model.DomainOpti
 	// acme text record should be refresh expiration
 	getOpts := &client.GetOptions{Sort: true, Recursive: true}
 	getResp, err := e.kapi.Get(context.Background(), e.prePath+"/_txt/_acme-challenge", getOpts)
-	if err != nil {
-		return d, err
-	}
-
-	subKeys := nodesToStringSlice(getResp.Node.Nodes)
-	for _, key := range subKeys {
-		splits := strings.Split(dopts.Fqdn, ".")
-		source := strings.Join(splits, "/")
-		if strings.Contains(key, source) {
-			// get value and refresh expiration
-			getResp, err = e.kapi.Get(context.Background(), key, &client.GetOptions{})
-			if err != nil {
-				return d, err
-			}
-			acmeOpts := &client.SetOptions{TTL: e.duration, PrevExist: client.PrevExist}
-			_, err := e.kapi.Set(context.Background(), key, getResp.Node.Value, acmeOpts)
-			if err != nil {
-				return d, err
+	if err == nil {
+		subKeys := nodesToStringSlice(getResp.Node.Nodes)
+		for _, key := range subKeys {
+			splits := strings.Split(dopts.Fqdn, ".")
+			source := strings.Join(splits, "/")
+			if strings.Contains(key, source) {
+				// get value and refresh expiration
+				getResp, err = e.kapi.Get(context.Background(), key, &client.GetOptions{})
+				if err != nil {
+					return d, err
+				}
+				acmeOpts := &client.SetOptions{TTL: e.duration, PrevExist: client.PrevExist}
+				_, err := e.kapi.Set(context.Background(), key, getResp.Node.Value, acmeOpts)
+				if err != nil {
+					return d, err
+				}
 			}
 		}
+	} else {
+		// ignore txt key not found error
+		return d, nil
 	}
-
 	return d, err
 }
 
