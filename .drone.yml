@@ -30,6 +30,11 @@ steps:
     tag: "${DRONE_COMMIT}-rancher-amd64"
     username:
       from_secret: docker_username
+  when:
+    event:
+    - push
+    branch:
+    - master
 
 volumes:
 - name: socket
