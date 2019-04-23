@@ -23,7 +23,6 @@ steps:
     context: .
     custom_dns: 1.1.1.1
     dockerfile: package/Dockerfile
-    dry_run: true
     password:
       from_secret: docker_password
     repo: rancher/rdns-server
