@@ -20,7 +20,7 @@ steps:
 - name: docker-publish
   image: plugins/docker
   settings:
-    context: .
+    context: "."
     custom_dns: 1.1.1.1
     dockerfile: package/Dockerfile
     password:
