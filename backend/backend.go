@@ -2,6 +2,7 @@ package backend
 
 import (
 	"github.com/rancher/rdns-server/model"
+
 	"github.com/sirupsen/logrus"
 )
 

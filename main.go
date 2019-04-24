@@ -5,10 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/rancher/rdns-server/backend"
 	"github.com/rancher/rdns-server/backend/etcd"
 	"github.com/rancher/rdns-server/service"
+
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
