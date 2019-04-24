@@ -51,6 +51,11 @@ func main() {
 			Value:  "/rdns",
 			EnvVar: "RANCHER_ETCD_PREPATH",
 		},
+		cli.StringFlag{
+			Name:   "domain-frozen-time",
+			Value:  "2160h",
+			EnvVar: "DOMAIN_FROZEN_TIME",
+		},
 	}
 	app.Action = func(ctx *cli.Context) {
 		if err := appMain(ctx); err != nil {
@@ -75,7 +80,7 @@ func appMain(ctx *cli.Context) error {
 	switch ctx.String("backend") {
 	case etcd.BackendName:
 		etcdEndpoints := strings.Split(ctx.String("etcd-endpoints"), ",")
-		b, err = etcd.NewEtcdBackend(etcdEndpoints, ctx.String("etcd-prepath"), ctx.String("root-domain"))
+		b, err = etcd.NewEtcdBackend(etcdEndpoints, ctx.String("etcd-prepath"), ctx.String("root-domain"), ctx.String("domain-frozen-time"))
 	default:
 		err = errors.Errorf("Failed to find backend %s", ctx.String("backend"))
 	}

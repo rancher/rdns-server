@@ -32,9 +32,10 @@ type BackendOperator struct {
 	prePath    string
 	duration   time.Duration
 	rootDomain string
+	frozenTime string
 }
 
-func NewEtcdBackend(endpoints []string, prePath string, rootDomain string) (*BackendOperator, error) {
+func NewEtcdBackend(endpoints []string, prePath string, rootDomain string, frozenTime string) (*BackendOperator, error) {
 	logrus.Debugf("Etcd init...")
 	cfg := client.Config{
 		Endpoints: endpoints,
@@ -53,7 +54,7 @@ func NewEtcdBackend(endpoints []string, prePath string, rootDomain string) (*Bac
 		return nil, err
 	}
 
-	return &BackendOperator{kapi, prePath, duration, rootDomain}, nil
+	return &BackendOperator{kapi, prePath, duration, rootDomain, frozenTime}, nil
 }
 
 func (e *BackendOperator) path(domainName string) string {
@@ -258,6 +259,70 @@ func (e *BackendOperator) set(path string, dopts *model.DomainOptions, exist boo
 	return d, nil
 }
 
+func (e *BackendOperator) checkFrozen(fqdn string) bool {
+	splits := strings.SplitN(fqdn, ".", 2)
+	path := fmt.Sprintf("/rdns/_frozen/%s", splits[0])
+	_, err := e.kapi.Get(context.Background(), path, nil)
+	if err != nil && client.IsKeyNotFound(err) {
+		return false
+	}
+	return true
+}
+
+func (e *BackendOperator) setFrozen(dopts *model.DomainOptions) error {
+	duration, err := time.ParseDuration(e.frozenTime)
+	if err != nil {
+		return err
+	}
+
+	splits := strings.SplitN(dopts.Fqdn, ".", 2)
+	path := fmt.Sprintf("/rdns/_frozen/%s", splits[0])
+
+	// check if this path exists
+	exist := false
+	if e.checkFrozen(dopts.Fqdn) {
+		exist = true
+	}
+
+	// create frozen path with ttl
+	logrus.Debugf("Etcd: set a frozen dir: %s", path)
+	opts := &client.SetOptions{TTL: duration, Dir: true}
+	if exist {
+		opts.PrevExist = client.PrevExist
+	}
+	if _, err := e.kapi.Set(context.Background(), path, "", opts); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *BackendOperator) updateFrozen(dopts *model.DomainOptions) error {
+	duration, err := time.ParseDuration(e.frozenTime)
+	if err != nil {
+		return err
+	}
+
+	splits := strings.SplitN(dopts.Fqdn, ".", 2)
+	path := fmt.Sprintf("/rdns/_frozen/%s", splits[0])
+
+	// check if this path exists
+	exist := false
+	if e.checkFrozen(dopts.Fqdn) {
+		exist = true
+	}
+	opts := &client.SetOptions{TTL: duration, Dir: true}
+	if exist {
+		opts.PrevExist = client.PrevExist
+	}
+
+	if _, err := e.kapi.Set(context.Background(), path, "", opts); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (e *BackendOperator) setSubDomain(dopts *model.DomainOptions) (s map[string][]string, err error) {
 	var path string
 	subDomain := make(map[string][]string, 0)
@@ -398,6 +463,12 @@ func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, er
 		fqdn := fmt.Sprintf("%s.%s", generateSlug(), e.rootDomain)
 		path = e.path(fqdn)
 
+		// check if this path is frozen
+		if e.checkFrozen(fqdn) {
+			logrus.Debugf("%s is frozen will try another", fqdn)
+			continue
+		}
+
 		// check if this path exists and use this path if not exist
 		_, err := e.kapi.Get(context.Background(), path, nil)
 		if err != nil && client.IsKeyNotFound(err) {
@@ -408,6 +479,11 @@ func (e *BackendOperator) Create(dopts *model.DomainOptions) (d model.Domain, er
 
 	d, err = e.set(path, dopts, false)
 	if err != nil {
+		return d, err
+	}
+
+	// save the domain name to the /rdns/_frozen/xxxx which will later determine if fqdn can be issued again.
+	if err := e.setFrozen(dopts); err != nil {
 		return d, err
 	}
 
@@ -426,7 +502,10 @@ func (e *BackendOperator) Update(dopts *model.DomainOptions) (d model.Domain, er
 	}
 
 	d, err = e.set(path, dopts, exist)
-	return d, err
+	if err != nil {
+		return d, err
+	}
+	return d, e.updateFrozen(dopts)
 }
 
 func (e *BackendOperator) Renew(dopts *model.DomainOptions) (d model.Domain, err error) {
@@ -434,7 +513,10 @@ func (e *BackendOperator) Renew(dopts *model.DomainOptions) (d model.Domain, err
 	path := e.path(dopts.Fqdn)
 
 	d, err = e.refreshExpiration(path, dopts)
-	return d, err
+	if err != nil {
+		return d, err
+	}
+	return d, e.updateFrozen(dopts)
 }
 
 func (e *BackendOperator) Delete(dopts *model.DomainOptions) error {
