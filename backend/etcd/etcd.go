@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/etcd/client"
 	"github.com/rancher/rdns-server/model"
 	"github.com/rancher/rdns-server/util"
+
+	"github.com/coreos/etcd/client"
 	"github.com/sirupsen/logrus"
 )
 

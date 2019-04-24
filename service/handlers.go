@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/context"
-	"github.com/gorilla/mux"
 	"github.com/rancher/rdns-server/backend"
 	"github.com/rancher/rdns-server/model"
+
+	"github.com/gorilla/context"
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
 

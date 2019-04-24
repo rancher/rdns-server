@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/rancher/rdns-server/backend"
+
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/rancher/rdns-server/backend"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
