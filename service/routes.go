@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -15,8 +16,6 @@ type Route struct {
 }
 
 type Routes []Route
-
-var rootDomain string
 
 var routes = Routes{
 	Route{
@@ -79,12 +78,28 @@ var routes = Routes{
 		"/v1/domain/{fqdn}/txt",
 		deleteDomainText,
 	},
+	Route{
+		"migrateRecords",
+		"POST",
+		"/v1/migrate/record",
+		migrateRecord,
+	},
+	Route{
+		"migrateFrozen",
+		"POST",
+		"/v1/migrate/frozen",
+		migrateFrozen,
+	},
+	Route{
+		"migrateToken",
+		"POST",
+		"/v1/migrate/token",
+		migrateToken,
+	},
 }
 
-func NewRouter(r string) *mux.Router {
+func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-
-	rootDomain = r
 
 	logrus.Debugf("Setting HTTP handlers")
 	for _, route := range routes {
@@ -94,6 +109,8 @@ func NewRouter(r string) *mux.Router {
 			Name(route.Name).
 			Handler(apiHandler(route.HandlerFunc))
 	}
+
+	router.Handle("/metrics", promhttp.Handler())
 
 	router.Use(tokenMiddleware)
 

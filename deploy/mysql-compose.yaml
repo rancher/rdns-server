@@ -1,0 +1,21 @@
+version: '2'
+
+services:
+  rdns-mysql:
+    image: mysql:8.0.16
+    volumes:
+      - /mnt/data/mysql:/var/lib/mysql
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=rdns
+    logging:
+      driver: json-file
+      options:
+        max-file: '2'
+        max-size: 25m
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci

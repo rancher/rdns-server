@@ -1,6 +1,0 @@
-$ORIGIN api.lb.rancher.cloud.     ; designates the start of this zone file in the namespace
-$TTL 1h                           ; default expiration time of all resource records without their own TTL value
-
-@                                       IN  SOA      ns.lb.rancher.cloud niusmallnan.gmail.com 201806071 10800 3600 604800 3600
-@                                       IN  CNAME    rdns-server-lb-1538981444.us-west-1.elb.amazonaws.com.
-_7c8469744cd3bd85244838f4bd46aa97       IN  CNAME    _d89bf48e492e104f7152378a6babe032.acm-validations.aws.
