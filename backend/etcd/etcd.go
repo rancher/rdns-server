@@ -594,9 +594,14 @@ func (e *BackendOperator) GetText(dopts *model.DomainOptions) (d model.Domain, e
 		return d, err
 	}
 
+	m, err := convertToMap(resp.Node.Value)
+	if err != nil {
+		return d, err
+	}
+
 	d.Fqdn = dopts.Fqdn
 	d.Expiration = resp.Node.Expiration
-	d.Text = resp.Node.Value
+	d.Text = m[ValueTextKey]
 
 	return d, nil
 }
