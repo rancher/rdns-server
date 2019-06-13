@@ -1,0 +1,4 @@
+mysql:
+  dialect: mysql
+  datasource: root:<MYSQL_ROOT_PASSWORD>@/rdns?parseTime=true
+  dir: migrations

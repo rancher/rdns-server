@@ -5,6 +5,9 @@ source $(dirname $0)/version
 
 cd $(dirname $0)/..
 
+BUILDDATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+CONST="-X main.DNSVersion=${VERSION} -X main.DNSDate='${BUILDDATE}'"
+
 mkdir -p bin
-[ "$(uname)" != "Darwin" ] && LINKFLAGS="-linkmode external -extldflags -static -s"
-CGO_ENABLED=0 go build -ldflags "-X main.VERSION=$VERSION $LINKFLAGS" -o bin/rdns-server
+go build -ldflags "$CONST -extldflags -static -s -w" -o bin/rdns-server

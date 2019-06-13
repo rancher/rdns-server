@@ -85,7 +85,7 @@ func createDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	b := backend.GetBackend()
-	d, err := b.Create(opts)
+	d, err := b.Set(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 		return
@@ -168,7 +168,7 @@ func createDomainText(w http.ResponseWriter, r *http.Request) {
 	opts.Fqdn = fqdn
 
 	b := backend.GetBackend()
-	d, err := b.CreateText(opts)
+	d, err := b.SetText(opts)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 		return
@@ -227,5 +227,56 @@ func deleteDomainText(w http.ResponseWriter, r *http.Request) {
 }
 
 func ping(w http.ResponseWriter, r *http.Request) {
+	returnSuccessNoData(w)
+}
+
+func migrateRecord(w http.ResponseWriter, r *http.Request) {
+	opts, err := model.ParseMigrateRecord(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	b := backend.GetBackend()
+	err = b.MigrateRecord(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccessNoData(w)
+}
+
+func migrateFrozen(w http.ResponseWriter, r *http.Request) {
+	opts, err := model.ParseMigrateFrozen(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	b := backend.GetBackend()
+	err = b.MigrateFrozen(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccessNoData(w)
+}
+
+func migrateToken(w http.ResponseWriter, r *http.Request) {
+	opts, err := model.ParseMigrateToken(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	b := backend.GetBackend()
+	err = b.MigrateToken(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	returnSuccessNoData(w)
 }

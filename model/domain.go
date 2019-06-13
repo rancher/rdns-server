@@ -17,12 +17,12 @@ type Domain struct {
 
 func (d *Domain) String() string {
 	if d.Text != "" {
-		return fmt.Sprintf("{Fqdn: %s, Text: %s, Expiration: %s}", d.Fqdn, d.Text, d.Expiration.String())
+		return fmt.Sprintf("{Fqdn: %s, Text: %s, Expiration: %s}", d.Fqdn, d.Text, d.Expiration.Format(time.RFC3339Nano))
 	}
 	if len(d.SubDomain) > 0 {
-		return fmt.Sprintf("{Fqdn: %s, Hosts: %s, SubDomain: %s, Expiration: %s}", d.Fqdn, d.Hosts, mapToString(d.SubDomain), d.Expiration.String())
+		return fmt.Sprintf("{Fqdn: %s, Hosts: %s, SubDomain: %s, Expiration: %s}", d.Fqdn, d.Hosts, mapToString(d.SubDomain), d.Expiration.Format(time.RFC3339Nano))
 	}
-	return fmt.Sprintf("{Fqdn: %s, Hosts: %s, Expiration: %s}", d.Fqdn, d.Hosts, d.Expiration.String())
+	return fmt.Sprintf("{Fqdn: %s, Hosts: %s, Expiration: %s}", d.Fqdn, d.Hosts, d.Expiration.Format(time.RFC3339Nano))
 }
 
 type DomainOptions struct {
