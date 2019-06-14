@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	Name             = "route53"
 	typeA            = "A"
 	typeTXT          = "TXT"
 	typeToken        = "TOKEN"
@@ -68,6 +69,10 @@ func NewBackend() (*Backend, error) {
 		ZoneID: aws.StringValue(z.HostedZone.Id),
 		Svc:    svc,
 	}, nil
+}
+
+func (b *Backend) GetName() string {
+	return Name
 }
 
 func (b *Backend) GetZone() string {
@@ -493,6 +498,10 @@ func (b *Backend) DeleteText(opts *model.DomainOptions) error {
 func (b *Backend) GetToken(fqdn string) (string, error) {
 	t, err := database.GetDatabase().QueryToken(fqdn)
 	return t.Token, err
+}
+
+func (b *Backend) GetTokenCount() (int64, error) {
+	return database.GetDatabase().QueryTokenCount()
 }
 
 func (b *Backend) SetToken(opts *model.DomainOptions, exist bool) (int64, error) {

@@ -5,7 +5,8 @@ The rdns-server implements the API interface of Dynamic DNS, its goal is to use 
 
 | Default | Backend | Description |
 | ------- | ------- | ----------- |
-|    *    | Route53 | Store the records in the aws route53 service and copy them to the database |
+|    *    | Route53 | Store the records in the AWS Route53 service and copy them to the database |
+|         | CoreDNS | Store the records in the ETCD and query by CoreDNS |
 
 ## Building
 
@@ -15,13 +16,13 @@ The rdns-server implements the API interface of Dynamic DNS, its goal is to use 
 
 #### Running Database
 ```shell
-MYSQL_ROOT_PASSWORD="[password]" docker-compose -f deploy/mysql-compose.yaml up -d
+MYSQL_ROOT_PASSWORD="[password]" docker-compose -f deploy/route53/mysql-compose.yaml up -d
 MYSQL_ROOT_PASSWORD="[password]" database/migrate-up.sh
 ```
 
 #### Running RDNS
 ```shell
-AWS_HOSTED_ZONE_ID="[aws hosted zone ID]" AWS_ACCESS_KEY_ID="[aws access key ID]" AWS_SECRET_ACCESS_KEY="[aws secret access key]" DSN="[username[:password]@][tcp[(address)]]/rdns?parseTime=true" docker-compose -f deploy/rdns-compose.yaml up -d
+AWS_HOSTED_ZONE_ID="[aws hosted zone ID]" AWS_ACCESS_KEY_ID="[aws access key ID]" AWS_SECRET_ACCESS_KEY="[aws secret access key]" DSN="[username[:password]@][tcp[(address)]]/rdns?parseTime=true" docker-compose -f deploy/route53/rdns-compose.yaml up -d
 ```
 
 #### Migrate Datum From v0.4.x To v0.5.x
@@ -38,7 +39,7 @@ USAGE:
    rdns-server [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.5.0
+   v0.5.1
 
 AUTHOR:
    Rancher Labs, Inc.
@@ -52,6 +53,12 @@ COMMANDS:
         --database value               used to set database. (default: "mysql") [$DATABASE]
         --dsn value                    used to set database dsn. [$DSN]
         --ttl value                    used to set record ttl. (default: "240h") [$TTL]
+     etcdv3, ev3   use etcd-v3 backend
+     OPTIONS:
+        --domain value            used to set etcd root domain. (default: "lb.rancher.cloud") [$DOMAIN]
+        --etcd_endpoints value    used to set etcd endpoints. (default: "http://127.0.0.1:2379") [$ETCD_ENDPOINTS]
+        --etcd_prefix_path value  used to set etcd prefix path. (default: "/rdnsv3") [$ETCD_PREFIX_PATH]
+        --ttl value               used to set record ttl. (default: "240h") [$TTL]
 
 GLOBAL OPTIONS:
    --debug, -d     used to set debug mode. [$DEBUG]
