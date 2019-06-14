@@ -1,0 +1,35 @@
+version: '2'
+
+services:
+  etcd:
+    image: gcr.io/etcd-development/etcd:v3.3.13
+    volumes:
+      - /mnt/etcd-data:/etcd-data
+    restart: always
+    network_mode: host
+    logging:
+      driver: json-file
+      options:
+        max-file: '2'
+        max-size: 25m
+    command:
+      - /usr/local/bin/etcd
+      - --name
+      - rdnsdb
+      - --data-dir
+      - /etcd-data
+      - --force-new-cluster
+      - --listen-client-urls
+      - http://0.0.0.0:2379
+      - --advertise-client-urls
+      - http://0.0.0.0:2379
+      - --listen-peer-urls
+      - http://0.0.0.0:2380
+      - --initial-advertise-peer-urls
+      - http://0.0.0.0:2380
+      - --initial-cluster
+      - rdnsdb=http://0.0.0.0:2380
+      - --initial-cluster-token
+      - rdnsdb-tkn
+      - --initial-cluster-state
+      - new

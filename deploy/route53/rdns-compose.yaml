@@ -1,0 +1,20 @@
+version: '2'
+
+services:
+  rdns-server:
+    image: rancher/rdns-server:v0.5.1-rancher-amd64
+    network_mode: host
+    restart: always
+    environment:
+      - AWS_HOSTED_ZONE_ID=${AWS_HOSTED_ZONE_ID}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - DSN=${DSN}
+    logging:
+      driver: json-file
+      options:
+        max-file: '2'
+        max-size: 25m
+    command:
+      - rdns-server
+      - route53

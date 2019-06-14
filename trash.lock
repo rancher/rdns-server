@@ -3,7 +3,9 @@ import:
 - package: github.com/aws/aws-sdk-go
   version: v1.19.39
 - package: github.com/beorn7/perks
-  version: v1.0.0
+  version: 4b2b341e8d7715fae06375aa633dbb6e91b3fb46
+- package: github.com/coreos/etcd
+  version: v3.3.13
 - package: github.com/go-sql-driver/mysql
   version: v1.4.1
 - package: github.com/gogo/protobuf
@@ -19,7 +21,7 @@ import:
 - package: github.com/jmespath/go-jmespath
   version: c2b33e8439af944379acbdd9c3a5fe0bc44bd8a5
 - package: github.com/matttproud/golang_protobuf_extensions
-  version: c182affec369e30f25d3eb8cd8a478dee585ae7d
+  version: v1.0.1
 - package: github.com/pkg/errors
   version: v0.8.0-1-g839d9e9
 - package: github.com/prometheus/client_golang
@@ -34,6 +36,9 @@ import:
   version: v1.0.5
 - package: github.com/urfave/cli
   version: v1.20.0
+- package: go.etcd.io/etcd
+  version: v3.3.13
+  repo: github.com/etcd-io/etcd
 - package: golang.org/x/crypto
   version: 9419663f5a44be8b34ca85f08abc5fe1be11f8a3
 - package: golang.org/x/net
@@ -42,5 +47,9 @@ import:
   version: ebfc5b4631820b793c9010c87fd8fef0f39eb082
 - package: golang.org/x/text
   version: b19bf474d317b857955b12035d2c5acb57ce8b01
+- package: google.golang.org/genproto
+  version: 09f6ed296fc66555a25fe4ce95173148778dfa85
+- package: google.golang.org/grpc
+  version: v1.7.5
 - package: k8s.io/apimachinery
   version: release-1.10

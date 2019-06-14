@@ -6,6 +6,13 @@
 docker build -t "rancher/rdns-integration-test" .
 ```
 
+## Pre-Configuration
+```
+vi /etc/resolv.conf
+
+nameserver x.x.x.x
+```
+
 ## Run
 
 ```

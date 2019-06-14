@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/rancher/rdns-server/command/etcdv3"
 	"github.com/rancher/rdns-server/command/route53"
 
 	"github.com/sirupsen/logrus"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	DNSVersion = "v0.5.0"
+	DNSVersion = "v0.5.1"
 	DNSDate    string
 )
 
@@ -53,6 +54,13 @@ func main() {
 			Usage:   "use aws route53 backend",
 			Flags:   route53.Flags(),
 			Action:  route53.Action,
+		},
+		{
+			Name:    "etcdv3",
+			Aliases: []string{"ev3"},
+			Usage:   "use etcd-v3 backend",
+			Flags:   etcdv3.Flags(),
+			Action:  etcdv3.Action,
 		},
 	}
 	if err := app.Run(os.Args); err != nil {

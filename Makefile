@@ -10,11 +10,14 @@ TARGETS := $(shell ls scripts)
 $(TARGETS): .dapper
 	./.dapper $@
 
-trash: .dapper
-	./.dapper -m bind trash
+mod: .dapper
+	./.dapper -m bind go mod tidy
 
-trash-keep: .dapper
-	./.dapper -m bind trash -k
+mod-vendor: .dapper
+	./.dapper -m bind go mod vendor
+
+shell-bind: .dapper
+	./.dapper -m bind -s
 
 deps: trash
 

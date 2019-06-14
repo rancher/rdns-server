@@ -19,7 +19,9 @@ type Backend interface {
 	UpdateText(opts *model.DomainOptions) (model.Domain, error)
 	DeleteText(opts *model.DomainOptions) error
 	GetToken(fqdn string) (string, error)
+	GetTokenCount() (int64, error)
 	GetZone() string
+	GetName() string
 	MigrateFrozen(opts *model.MigrateFrozen) error
 	MigrateToken(opts *model.MigrateToken) error
 	MigrateRecord(opts *model.MigrateRecord) error
