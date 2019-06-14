@@ -27,6 +27,7 @@ const (
 	maxSlugHashTimes = 100
 	slugLength       = 6
 	tokenLength      = 32
+	route53TTL       = 300
 )
 
 type Backend struct {
@@ -157,7 +158,7 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 		Type:            aws.String(typeA),
 		Name:            aws.String(opts.Fqdn),
 		ResourceRecords: rr,
-		TTL:             aws.Int64(int64(b.TTL.Seconds())),
+		TTL:             aws.Int64(int64(route53TTL)),
 	}
 	pID, err := b.setRecord(rrs, opts, typeA, tID, 0, false)
 	if err != nil {
@@ -183,7 +184,7 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 			Type:            aws.String(typeA),
 			Name:            aws.String(fmt.Sprintf("%s.%s", k, opts.Fqdn)),
 			ResourceRecords: rr,
-			TTL:             aws.Int64(int64(b.TTL.Seconds())),
+			TTL:             aws.Int64(int64(route53TTL)),
 		}
 
 		if _, err := b.setRecord(rrs, opts, typeA, tID, pID, true); err != nil {
@@ -222,7 +223,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 		Type:            aws.String(typeA),
 		Name:            aws.String(opts.Fqdn),
 		ResourceRecords: rr,
-		TTL:             aws.Int64(int64(b.TTL.Seconds())),
+		TTL:             aws.Int64(int64(route53TTL)),
 	}
 
 	r, err := database.GetDatabase().QueryA(opts.Fqdn)
@@ -253,7 +254,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 			Type:            aws.String(typeA),
 			Name:            aws.String(fmt.Sprintf("%s.%s", k, opts.Fqdn)),
 			ResourceRecords: rr,
-			TTL:             aws.Int64(int64(b.TTL.Seconds())),
+			TTL:             aws.Int64(int64(route53TTL)),
 		}
 
 		if _, err := b.setRecord(rrs, opts, typeA, r.TID, r.ID, true); err != nil {
@@ -276,7 +277,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 				Name:            aws.String(fmt.Sprintf("%s.%s", k, opts.Fqdn)),
 				Type:            aws.String(typeA),
 				ResourceRecords: rr,
-				TTL:             aws.Int64(int64(b.TTL.Seconds())),
+				TTL:             aws.Int64(int64(route53TTL)),
 			}
 
 			if err := b.deleteRecord(rrs, opts, typeA, true); err != nil {
@@ -411,7 +412,7 @@ func (b *Backend) SetText(opts *model.DomainOptions) (d model.Domain, err error)
 				Value: aws.String(fmt.Sprintf("\"%s\"", opts.Text)),
 			},
 		},
-		TTL: aws.Int64(int64(b.TTL.Seconds())),
+		TTL: aws.Int64(int64(route53TTL)),
 	}
 
 	if _, err := b.setRecord(rrs, opts, typeTXT, r.ID, 0, false); err != nil {
@@ -446,7 +447,7 @@ func (b *Backend) UpdateText(opts *model.DomainOptions) (d model.Domain, err err
 				Value: aws.String(fmt.Sprintf("\"%s\"", opts.Text)),
 			},
 		},
-		TTL: aws.Int64(int64(b.TTL.Seconds())),
+		TTL: aws.Int64(int64(route53TTL)),
 	}
 
 	if _, err := b.setRecord(rrs, opts, typeTXT, r.TID, 0, false); err != nil {
@@ -547,7 +548,7 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 			Type:            aws.String(typeA),
 			Name:            aws.String(dopts.Fqdn),
 			ResourceRecords: rr,
-			TTL:             aws.Int64(int64(b.TTL.Seconds())),
+			TTL:             aws.Int64(int64(route53TTL)),
 		}
 		pID, err := b.setRecord(rrs, dopts, typeA, t.ID, 0, false)
 		if err != nil {
@@ -573,7 +574,7 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 				Type:            aws.String(typeA),
 				Name:            aws.String(fmt.Sprintf("%s.%s", k, dopts.Fqdn)),
 				ResourceRecords: rr,
-				TTL:             aws.Int64(int64(b.TTL.Seconds())),
+				TTL:             aws.Int64(int64(route53TTL)),
 			}
 
 			if _, err := b.setRecord(rrs, dopts, typeA, t.ID, pID, true); err != nil {
@@ -723,7 +724,7 @@ func (b *Backend) deleteRecord(rrs *route53.ResourceRecordSet, opts *model.Domai
 						Name:            rrs.Name,
 						Type:            aws.String(rType),
 						ResourceRecords: rrs.ResourceRecords,
-						TTL:             aws.Int64(int64(b.TTL.Seconds())),
+						TTL:             aws.Int64(int64(route53TTL)),
 					},
 				},
 			},
