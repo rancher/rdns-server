@@ -15,8 +15,8 @@ def test_server_apis():  # NOQA
                                       'fqdn': '',
                                       'hosts': ["1.1.1.1", "3.3.3.3"],
                                       'subdomain': {
-                                          'sub1': ["9.9.9.9", "4.4.4.4"],
-                                          'sub2': ["5.5.5.5", "6.6.6.6"],
+                                          'sub1': ["9.9.9.9"],
+                                          'sub2': ["5.5.5.5"],
                                       },
                                   })
     assert response != ""
@@ -31,9 +31,31 @@ def test_server_apis():  # NOQA
         assert host in ["1.1.1.1", "3.3.3.3"]
     for (k, v) in result['data']['subdomain'].items():
         if k == 'sub1':
-            assert v == ["9.9.9.9", "4.4.4.4"]
+            assert v == ["9.9.9.9"]
         else:
-            assert v == ["5.5.5.5", "6.6.6.6"]
+            assert v == ["5.5.5.5"]
+
+    # test update
+    url = build_url(BASE_URL, "/" + fqdn, "")
+    response = update_domain_test(url,
+                                  token,
+                                  {
+                                      'hosts': ["2.2.2.2"],
+                                      'subdomain': {
+                                          'sub1': ["9.9.9.9"],
+                                          'sub2': ["7.7.7.7"],
+                                      },
+                                  })
+    assert response != ""
+    result = response.json()
+    assert result['status'] == 200
+    for host in result['data']['hosts']:
+        assert host in ["2.2.2.2"]
+    for (k, v) in result['data']['subdomain'].items():
+        if k == 'sub1':
+            assert v == ["9.9.9.9"]
+        else:
+            assert v == ["7.7.7.7"]
 
     # test create acme text record
     acme_url = build_url(BASE_URL, "/_acme-challenge." + fqdn, "/txt")
@@ -45,28 +67,6 @@ def test_server_apis():  # NOQA
     assert result['status'] == 200
     assert result['data']['fqdn'] != ""
     assert result['data']['text'] == "acme challenge record"
-
-    # test update
-    url = build_url(BASE_URL, "/" + fqdn, "")
-    response = update_domain_test(url,
-                                  token,
-                                  {
-                                      'fqdn': '', 'hosts': ["2.2.2.2"],
-                                      'subdomain': {
-                                          'sub1': ["9.9.9.9", "4.4.4.4"],
-                                          'sub2': ["7.7.7.7", "6.6.6.6"],
-                                      },
-                                  })
-    assert response != ""
-    result = response.json()
-    assert result['status'] == 200
-    for host in result['data']['hosts']:
-        assert host in ["2.2.2.2"]
-    for (k, v) in result['data']['subdomain'].items():
-        if k == 'sub1':
-            assert v == ["9.9.9.9", "4.4.4.4"]
-        else:
-            assert v == ["7.7.7.7", "6.6.6.6"]
 
     # test update acme text record
     acme_url = build_url(BASE_URL, "/_acme-challenge." + fqdn, "/txt")

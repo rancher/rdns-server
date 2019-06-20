@@ -1,0 +1,16 @@
+. {
+    file /etc/rdns/config/api.lb.rancher.cloud.dbfile api.lb.rancher.cloud {
+        reload 0
+    }
+    rdns lb.rancher.cloud {
+        path /rdnsv3
+        endpoint http://localhost:2379
+        upstream 8.8.8.8:53 8.8.4.4:53
+        wildcardbound 4
+    }
+    cache 60 lb.rancher.cloud
+    loadbalance
+    forward . 8.8.8.8:53 8.8.4.4:53
+    log stdout
+    errors
+}

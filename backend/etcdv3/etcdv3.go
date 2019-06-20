@@ -226,27 +226,27 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 
 		if strings.Contains(prefix, "_") {
 			ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+			_, err := b.C.Delete(ctx, path)
 			cancel()
-			if _, err := b.C.Delete(ctx, path); err != nil {
+			if err != nil {
 				return errors.Wrapf(err, errDeleteRecord, typeA, opts.Fqdn)
 			}
 		}
 
 	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
 	defer cancel()
 
 	if _, err := b.C.Delete(ctx, path); err != nil {
 		return errors.Wrapf(err, errDeleteRecord, typeA, opts.Fqdn)
 	}
-
 	for prefix := range d.SubDomain {
 		path := getPath(b.Prefix, fmt.Sprintf("%s.%s", prefix, opts.Fqdn))
 
 		ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+		_, err := b.C.Delete(ctx, path, clientv3.WithPrefix())
 		cancel()
-		if _, err := b.C.Delete(ctx, path, clientv3.WithPrefix()); err != nil {
+		if err != nil {
 			return errors.Wrapf(err, errDeleteRecord, typeA, opts.Fqdn)
 		}
 	}

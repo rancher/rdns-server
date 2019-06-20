@@ -5,6 +5,8 @@ services:
     image: rancher/rdns-server:v0.5.1-rancher-amd64
     network_mode: host
     restart: always
+    volumes:
+      - ./config:/etc/rdns/config
     environment:
       - ETCD_ENDPOINTS=${ETCD_ENDPOINTS}
     logging:

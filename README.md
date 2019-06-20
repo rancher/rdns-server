@@ -14,15 +14,17 @@ The rdns-server implements the API interface of Dynamic DNS, its goal is to use 
 
 ## Running
 
-#### Running Database
+#### Running RDNS Route53
 ```shell
 MYSQL_ROOT_PASSWORD="[password]" docker-compose -f deploy/route53/mysql-compose.yaml up -d
 MYSQL_ROOT_PASSWORD="[password]" database/migrate-up.sh
+AWS_HOSTED_ZONE_ID="[aws hosted zone ID]" AWS_ACCESS_KEY_ID="[aws access key ID]" AWS_SECRET_ACCESS_KEY="[aws secret access key]" DSN="[username[:password]@][tcp[(address)]]/rdns?parseTime=true" docker-compose -f deploy/route53/rdns-compose.yaml up -d
 ```
 
-#### Running RDNS
+#### Running RDNS CoreDNS
 ```shell
-AWS_HOSTED_ZONE_ID="[aws hosted zone ID]" AWS_ACCESS_KEY_ID="[aws access key ID]" AWS_SECRET_ACCESS_KEY="[aws secret access key]" DSN="[username[:password]@][tcp[(address)]]/rdns?parseTime=true" docker-compose -f deploy/route53/rdns-compose.yaml up -d
+docker-compose -f deploy/etcdv3/etcd-compose.yaml up -d
+ETCD_ENDPOINTS="http://127.0.0.1:2379" docker-compose -f deploy/etcdv3/rdns-compose.yaml up -d
 ```
 
 #### Migrate Datum From v0.4.x To v0.5.x
@@ -55,10 +57,13 @@ COMMANDS:
         --ttl value                    used to set record ttl. (default: "240h") [$TTL]
      etcdv3, ev3   use etcd-v3 backend
      OPTIONS:
+        --core_dns_port value     used to set coredns port. (default: "53") [$CORE_DNS_PORT]
+        --core_dns_cpu value      used to set coredns cpu, a number (e.g. 3) or a percent (e.g. 50%). (default: "50%") [$CORE_DNS_CPU]
+        --ttl value               used to set record ttl. (default: "240h") [$TTL]
         --domain value            used to set etcd root domain. (default: "lb.rancher.cloud") [$DOMAIN]
         --etcd_endpoints value    used to set etcd endpoints. (default: "http://127.0.0.1:2379") [$ETCD_ENDPOINTS]
         --etcd_prefix_path value  used to set etcd prefix path. (default: "/rdnsv3") [$ETCD_PREFIX_PATH]
-        --ttl value               used to set record ttl. (default: "240h") [$TTL]
+        --core_dns_file value     used to set coredns file. (default: "/etc/rdns/config/Corefile") [$CORE_DNS_FILE]
 
 GLOBAL OPTIONS:
    --debug, -d     used to set debug mode. [$DEBUG]
