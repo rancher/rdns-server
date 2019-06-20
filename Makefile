@@ -11,9 +11,6 @@ $(TARGETS): .dapper
 	./.dapper $@
 
 mod: .dapper
-	./.dapper -m bind go mod tidy
-
-mod-vendor: .dapper
 	./.dapper -m bind go mod vendor
 
 shell-bind: .dapper

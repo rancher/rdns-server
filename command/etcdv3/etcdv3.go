@@ -7,15 +7,13 @@ import (
 
 	"github.com/rancher/rdns-server/backend"
 	"github.com/rancher/rdns-server/backend/etcdv3"
+	"github.com/rancher/rdns-server/coredns"
 	"github.com/rancher/rdns-server/metric"
 	"github.com/rancher/rdns-server/service"
 
-	"github.com/coredns/coredns/coremain"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-	// Plug in CoreDNS
-	_ "github.com/coredns/coredns/core/plugin"
 )
 
 var (
@@ -23,7 +21,9 @@ var (
 		"DOMAIN":           {"used to set etcd root domain.": "lb.rancher.cloud"},
 		"ETCD_ENDPOINTS":   {"used to set etcd endpoints.": "http://127.0.0.1:2379"},
 		"ETCD_PREFIX_PATH": {"used to set etcd prefix path.": "/rdnsv3"},
-		"CORE_FILE":        {"used to set coredns file.": "/etc/coredns/config/corefile"},
+		"CORE_DNS_FILE":    {"used to set coredns file.": "/etc/rdns/config/Corefile"},
+		"CORE_DNS_PORT":    {"used to set coredns port.": "53"},
+		"CORE_DNS_CPU":     {"used to set coredns cpu, a number (e.g. 3) or a percent (e.g. 50%).": "50%"},
 		"TTL":              {"used to set record ttl.": "240h"},
 	}
 )
@@ -64,7 +64,7 @@ func Action(c *cli.Context) error {
 
 	go metric.StartMetricDaemon(done)
 
-	go coremain.Run()
+	go coredns.StartCoreDNSDaemon()
 
 	go func() {
 		if err := http.ListenAndServe(c.GlobalString("listen"), service.NewRouter()); err != nil {
