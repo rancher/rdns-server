@@ -188,8 +188,12 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 	path := getPath(b.Prefix, opts.Fqdn)
 
 	kvs, err := b.lookupKeys(path)
-	if err != nil || len(kvs) <= 0 {
+	if err != nil {
 		return d, errors.Wrapf(err, errEmptyRecord, typeA, opts.Fqdn)
+	}
+
+	if len(kvs) <= 0 {
+		return d, errors.Errorf(errEmptyRecord, typeA, opts.Fqdn)
 	}
 
 	if _, err = b.setRecord(path, opts, true); err != nil {
@@ -371,8 +375,12 @@ func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error)
 	defer cancel()
 
 	resp, err := b.C.Get(ctx, path)
-	if err != nil || resp.Count <= 0 {
+	if err != nil {
 		return d, errors.Wrapf(err, errEmptyRecord, typeTXT, opts.Fqdn)
+	}
+
+	if resp.Count <= 0 {
+		return d, errors.Errorf(errEmptyRecord, typeTXT, opts.Fqdn)
 	}
 
 	lease, err := b.getLease(resp.Kvs[0].Lease)
@@ -641,8 +649,12 @@ func (b *Backend) setToken(opts *model.DomainOptions, exist bool) (int64, int64,
 		defer cancel()
 
 		resp, err := b.C.Get(ctx, path)
-		if err != nil || resp.Count <= 0 {
+		if err != nil {
 			return 0, -1, errors.Wrapf(err, errEmptyRecord, typeToken, opts.Fqdn)
+		}
+
+		if resp.Count <= 0 {
+			return 0, -1, errors.Errorf(errEmptyRecord, typeToken, opts.Fqdn)
 		}
 
 		token = string(resp.Kvs[0].Value)
