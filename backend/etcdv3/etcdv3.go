@@ -107,8 +107,12 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 			isText = true
 		}
 
-		if !strings.Contains(prefix, "_") && !isText {
+		if prefix != "" && !strings.Contains(prefix, "_") && !isText {
 			subs[prefix] = make([]string, 0)
+			continue
+		}
+
+		if m["host"] == "" {
 			continue
 		}
 
@@ -193,7 +197,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 	}
 
 	if len(kvs) <= 0 {
-		return d, errors.Errorf(errEmptyRecord, typeA, opts.Fqdn)
+		return d, errors.Errorf(errEmptyRecord, typeA, opts.String())
 	}
 
 	if _, err = b.setRecord(path, opts, true); err != nil {
@@ -228,7 +232,7 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 		prefix := findSubPrefix(k, path)
 		path := getPath(b.Prefix, fmt.Sprintf("%s.%s", prefix, opts.Fqdn))
 
-		if strings.Contains(prefix, "_") {
+		if prefix != "" && strings.Contains(prefix, "_") {
 			ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
 			_, err := b.C.Delete(ctx, path)
 			cancel()
@@ -299,7 +303,7 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 			isText = true
 		}
 
-		if !strings.Contains(prefix, "_") && !isText {
+		if prefix != "" && !strings.Contains(prefix, "_") && !isText {
 			subs[prefix] = make([]string, 0)
 			continue
 		}
@@ -388,8 +392,16 @@ func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error)
 		return d, err
 	}
 
+	m, err := unmarshalToMap(resp.Kvs[0].Value)
+	if err != nil {
+		return d, err
+	}
+
+	if _, ok := m["text"]; ok {
+		d.Text = m["text"]
+	}
+
 	d.Fqdn = opts.Fqdn
-	d.Text = opts.Text
 	d.Expiration = getExpiration(lease.TTL)
 
 	return d, nil
@@ -500,6 +512,17 @@ func (b *Backend) setRecord(path string, opts *model.DomainOptions, exist bool) 
 		return d, err
 	}
 
+	if !exist {
+		// make sure domain record is exist, although no hosts value
+		ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+		defer cancel()
+
+		_, err := b.C.Put(ctx, path, formatValue(""), clientv3.WithLease(clientv3.LeaseID(leaseID)))
+		if err != nil {
+			return d, err
+		}
+	}
+
 	kvs, err := b.lookupKeys(path)
 	if err != nil {
 		return d, err
@@ -522,7 +545,7 @@ func (b *Backend) setRecord(path string, opts *model.DomainOptions, exist bool) 
 			isText = true
 		}
 
-		if !strings.Contains(prefix, "_") && !isText {
+		if prefix != "" && !strings.Contains(prefix, "_") && !isText {
 			subs[prefix] = make([]string, 0)
 			continue
 		}
@@ -733,7 +756,23 @@ func (b *Backend) lookupKeys(path string) ([]*mvccpb.KeyValue, error) {
 		return nil, errors.Wrapf(err, errLookupRecords, typeA, path)
 	}
 
-	return resp.Kvs, nil
+	kvs := make([]*mvccpb.KeyValue, 0)
+	for _, v := range resp.Kvs {
+		if len(v.Value) > 0 {
+			m, err := unmarshalToMap(v.Value)
+			if err != nil {
+				continue
+			}
+			if _, ok := m["text"]; ok {
+				continue
+			}
+		} else {
+			v.Value = []byte("")
+		}
+		kvs = append(kvs, v)
+	}
+
+	return kvs, nil
 }
 
 func (b *Backend) getLease(id int64) (*clientv3.LeaseTimeToLiveResponse, error) {
@@ -860,6 +899,9 @@ func findSlugWithZone(fqdn, domain string) string {
 // Used to find sub domain prefix
 // e.g. /rdnsv3/cloud/rancher/lb/jc1af/x1/1_1_1_1 => x1
 func findSubPrefix(path, base string) string {
+	if path == base {
+		return ""
+	}
 	ss := strings.Split(path, base)
 	prefix := strings.Split(ss[1], "/")
 	return prefix[1]
