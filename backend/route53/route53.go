@@ -413,7 +413,7 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 	if err != nil {
 		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
 	}
-	_, _, err = database.GetDatabase().RenewToken(t.Token)
+	_, _, err = database.GetDatabase().RenewToken(t.Fqdn)
 	if err != nil {
 		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
 	}
