@@ -27,6 +27,7 @@ type Database interface {
 	InsertA(*model.RecordA) (int64, error)
 	UpdateA(*model.RecordA) (int64, error)
 	QueryA(name string) (*model.RecordA, error)
+	ListSubA(id int64) ([]*model.SubRecordA, error)
 	DeleteA(name string) error
 	InsertSubA(*model.SubRecordA) (int64, error)
 	UpdateSubA(*model.SubRecordA) (int64, error)

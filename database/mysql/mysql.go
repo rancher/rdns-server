@@ -334,6 +334,31 @@ func (d *Database) QuerySubA(name string) (*model.SubRecordA, error) {
 	return r, nil
 }
 
+func (d *Database) ListSubA(id int64) ([]*model.SubRecordA, error) {
+	rs := make([]*model.SubRecordA, 0)
+
+	st, err := d.Db.Prepare("SELECT * FROM sub_record_a WHERE pid = ?")
+	if err != nil {
+		return rs, err
+	}
+	defer st.Close()
+
+	rows, err := st.Query(id)
+	if err != nil {
+		return rs, err
+	}
+
+	for rows.Next() {
+		r := &model.SubRecordA{}
+		if err := rows.Scan(&r.ID, &r.Fqdn, &r.Type, &r.Content, &r.CreatedOn, &r.UpdatedOn, &r.PID); err != nil {
+			return rs, err
+		}
+		rs = append(rs, r)
+	}
+
+	return rs, nil
+}
+
 func (d *Database) DeleteSubA(name string) error {
 	st, err := d.Db.Prepare("DELETE FROM sub_record_a WHERE fqdn = ?")
 	if err != nil {
