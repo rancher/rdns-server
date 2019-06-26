@@ -82,6 +82,12 @@ func (b *Backend) GetZone() string {
 func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("get A record for domain options: %s", opts.String())
 
+	// get token from database
+	token, err := database.GetDatabase().QueryToken(opts.Fqdn)
+	if err != nil {
+		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+	}
+
 	records, err := b.getRecords(opts, typeA)
 	if err != nil {
 		return d, err
@@ -89,17 +95,36 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 
 	v, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 	if !v {
-		return d, errors.Errorf(errEmptyRecord, typeA, opts.String())
+		emptyName := fmt.Sprintf("%s.%s", "empty", opts.Fqdn)
+
+		e, err := database.GetDatabase().QueryA(emptyName)
+		if err != nil || e.Fqdn == "" {
+			return d, errors.Wrapf(err, errOperateDatabase, typeA, emptyName)
+		}
+
+		subs, _ := database.GetDatabase().ListSubA(e.ID)
+		if len(subs) > 0 {
+			ss := make(map[string][]string, 0)
+			for _, sub := range subs {
+				prefix := strings.Split(sub.Fqdn, ".")[0]
+				temp := make([]string, 0)
+				for _, r := range strings.Split(sub.Content, ",") {
+					temp = append(temp, r)
+				}
+				ss[prefix] = temp
+			}
+			d.SubDomain = ss
+		}
+
+		d.Fqdn = opts.Fqdn
+		d.Hosts = strings.Split(e.Content, ",")
+		d.Expiration = convertExpiration(time.Unix(0, token.CreatedOn), int(b.TTL.Nanoseconds()))
+
+		return d, nil
 	}
 
 	// convert A & sub domain records to map
 	ca, cs := b.convertARecords(a, s)
-
-	// get token from database
-	token, err := database.GetDatabase().QueryToken(opts.Fqdn)
-	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
-	}
 
 	d.Fqdn = opts.Fqdn
 	d.Hosts = ca[opts.Fqdn]
@@ -115,7 +140,7 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 	for i := 0; i < maxSlugHashTimes; i++ {
 		fqdn := fmt.Sprintf("%s.%s", generateSlug(), b.Zone)
 
-		// check whether this slug name can be used or not, if not found the slug name is valid others not valid
+		// check whether this slug name can be used or not, if not found the slug name is valid, others not valid
 		r, err := database.GetDatabase().QueryFrozen(strings.Split(fqdn, ".")[0])
 		if err != nil && err != sql.ErrNoRows {
 			return d, err
@@ -130,7 +155,7 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 		}
 
 		d, err := b.Get(o)
-		if err != nil || len(d.Hosts) == 0 {
+		if err != nil || d.Fqdn == "" {
 			opts.Fqdn = fqdn
 			break
 		}
@@ -151,6 +176,22 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
 	}
 
+	// set empty A record, sometimes we need to hold domain records although domain has no hosts value
+	rrs := &route53.ResourceRecordSet{
+		Type: aws.String(typeA),
+		Name: aws.String(fmt.Sprintf("empty.%s", opts.Fqdn)),
+		ResourceRecords: []*route53.ResourceRecord{
+			{
+				Value: aws.String(""),
+			},
+		},
+		TTL: aws.Int64(int64(route53TTL)),
+	}
+	pID, err := b.setRecordToDatabase(rrs, typeA, tID, 0, false)
+	if err != nil {
+		return d, errors.Wrapf(err, errOperateDatabase, typeA, aws.StringValue(rrs.Name))
+	}
+
 	// set A record
 	rr := make([]*route53.ResourceRecord, 0)
 	for _, h := range opts.Hosts {
@@ -158,14 +199,10 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 			Value: aws.String(h),
 		})
 	}
+	rrs.Name = aws.String(opts.Fqdn)
+	rrs.ResourceRecords = rr
 
-	rrs := &route53.ResourceRecordSet{
-		Type:            aws.String(typeA),
-		Name:            aws.String(opts.Fqdn),
-		ResourceRecords: rr,
-		TTL:             aws.Int64(int64(route53TTL)),
-	}
-	pID, err := b.setRecord(rrs, opts, typeA, tID, 0, false)
+	_, err = b.setRecord(rrs, opts, typeA, tID, pID, false)
 	if err != nil {
 		return d, err
 	}
@@ -208,13 +245,10 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 		return d, err
 	}
 
-	v, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
-	if !v {
-		return d, errors.Errorf(errEmptyRecord, typeA, opts.String())
-	}
+	_, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 
 	// convert A & sub domain records to map
-	_, cs := b.convertARecords(a, s)
+	as, cs := b.convertARecords(a, s)
 
 	// update A records
 	rr := make([]*route53.ResourceRecord, 0)
@@ -231,18 +265,18 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 		TTL:             aws.Int64(int64(route53TTL)),
 	}
 
-	r, err := database.GetDatabase().QueryA(opts.Fqdn)
-	if err != nil {
+	e, err := database.GetDatabase().QueryA(fmt.Sprintf("empty.%s", opts.Fqdn))
+	if err != nil || e.Fqdn == "" {
 		return d, errors.Wrapf(err, errOperateDatabase, typeA, opts.String())
 	}
 
-	if _, err := b.setRecord(rrs, opts, typeA, r.TID, 0, false); err != nil {
+	if _, err := b.setRecord(rrs, opts, typeA, e.TID, 0, false); err != nil {
 		return d, err
 	}
 
 	// update wildcard A records
 	rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
-	if _, err := b.setRecord(rrs, opts, typeA, r.TID, r.ID, false); err != nil {
+	if _, err := b.setRecord(rrs, opts, typeA, e.TID, e.ID, false); err != nil {
 		return d, err
 	}
 
@@ -262,10 +296,37 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 			TTL:             aws.Int64(int64(route53TTL)),
 		}
 
-		if _, err := b.setRecord(rrs, opts, typeA, r.TID, r.ID, true); err != nil {
+		if _, err := b.setRecord(rrs, opts, typeA, e.TID, e.ID, true); err != nil {
 			return d, err
 		}
+	}
 
+	// delete useless domain A records
+	if len(opts.Hosts) <= 0 {
+		if _, ok := as[opts.Fqdn]; ok {
+			rr := make([]*route53.ResourceRecord, 0)
+			for _, h := range as[opts.Fqdn] {
+				rr = append(rr, &route53.ResourceRecord{
+					Value: aws.String(h),
+				})
+			}
+
+			rrs := &route53.ResourceRecordSet{
+				Name:            aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn)),
+				Type:            aws.String(typeA),
+				ResourceRecords: rr,
+				TTL:             aws.Int64(int64(route53TTL)),
+			}
+
+			if err := b.deleteRecord(rrs, opts, typeA, true); err != nil {
+				return d, err
+			}
+
+			rrs.Name = aws.String(opts.Fqdn)
+			if err := b.deleteRecord(rrs, opts, typeA, true); err != nil {
+				return d, err
+			}
+		}
 	}
 
 	// delete useless sub domain A records
@@ -292,18 +353,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 		}
 	}
 
-	// get token from database
-	token, err := database.GetDatabase().QueryToken(opts.Fqdn)
-	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
-	}
-
-	d.Fqdn = opts.Fqdn
-	d.Hosts = opts.Hosts
-	d.SubDomain = opts.SubDomain
-	d.Expiration = convertExpiration(time.Unix(0, token.CreatedOn), int(b.TTL.Nanoseconds()))
-
-	return d, nil
+	return b.Get(opts)
 }
 
 func (b *Backend) Delete(opts *model.DomainOptions) error {
@@ -314,27 +364,42 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 		return err
 	}
 
-	v, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
-	if !v {
-		return errors.Errorf(errEmptyRecord, typeA, opts.String())
-	}
+	_, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 
 	// delete A records and wildcard A records
-	for _, rr := range a {
-		if err := b.deleteRecord(rr, opts, typeA, false); err != nil {
-			return err
+	if len(a) > 0 {
+		for _, rr := range a {
+			if err := b.deleteRecord(rr, opts, typeA, false); err != nil {
+				return err
+			}
+			rr.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+			if err := b.deleteRecord(rr, opts, typeA, false); err != nil {
+				return err
+			}
 		}
-		rr.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
-		if err := b.deleteRecord(rr, opts, typeA, false); err != nil {
-			return err
+	} else {
+		if err := database.GetDatabase().DeleteA(opts.Fqdn); err != nil {
+			return errors.Wrapf(err, errOperateDatabase, typeA, opts.Fqdn)
+		}
+		w := fmt.Sprintf("\\052.%s", opts.Fqdn)
+		if err := database.GetDatabase().DeleteA(w); err != nil {
+			return errors.Wrapf(err, errOperateDatabase, typeA, w)
 		}
 	}
 
 	// delete sub domain A records
-	for _, rr := range s {
-		if err := b.deleteRecord(rr, opts, typeA, true); err != nil {
-			return err
+	if len(s) > 0 {
+		for _, rr := range s {
+			if err := b.deleteRecord(rr, opts, typeA, true); err != nil {
+				return err
+			}
 		}
+	}
+
+	// delete empty record from database
+	emptyName := fmt.Sprintf("%s.%s", "empty", opts.Fqdn)
+	if err := database.GetDatabase().DeleteA(emptyName); err != nil {
+		return errors.Wrapf(err, errOperateDatabase, typeA, emptyName)
 	}
 
 	return nil
@@ -348,7 +413,7 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 	if err != nil {
 		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
 	}
-	_, nt, err := database.GetDatabase().RenewToken(t.Token)
+	_, _, err = database.GetDatabase().RenewToken(t.Token)
 	if err != nil {
 		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
 	}
@@ -358,12 +423,7 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 		return d, errors.Wrapf(err, errOperateDatabase, typeFrozen, opts.String())
 	}
 
-	d.Fqdn = opts.Fqdn
-	d.Hosts = opts.Hosts
-	d.SubDomain = opts.SubDomain
-	d.Expiration = convertExpiration(time.Unix(0, nt), int(b.TTL.Nanoseconds()))
-
-	return d, nil
+	return b.Get(opts)
 }
 
 func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error) {
@@ -546,6 +606,22 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 			return errors.Wrapf(err, errOperateDatabase, typeA, dopts.String())
 		}
 
+		// set empty A record, sometimes we need to hold domain records although domain has no hosts value
+		rrs := &route53.ResourceRecordSet{
+			Type: aws.String(typeA),
+			Name: aws.String(fmt.Sprintf("empty.%s", opts.Fqdn)),
+			ResourceRecords: []*route53.ResourceRecord{
+				{
+					Value: aws.String(""),
+				},
+			},
+			TTL: aws.Int64(int64(route53TTL)),
+		}
+		pID, err := b.setRecordToDatabase(rrs, typeA, t.ID, 0, false)
+		if err != nil {
+			return errors.Wrapf(err, errOperateDatabase, typeA, aws.StringValue(rrs.Name))
+		}
+
 		rr := make([]*route53.ResourceRecord, 0)
 		for _, h := range dopts.Hosts {
 			rr = append(rr, &route53.ResourceRecord{
@@ -553,13 +629,13 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 			})
 		}
 
-		rrs := &route53.ResourceRecordSet{
+		rrs = &route53.ResourceRecordSet{
 			Type:            aws.String(typeA),
 			Name:            aws.String(dopts.Fqdn),
 			ResourceRecords: rr,
 			TTL:             aws.Int64(int64(route53TTL)),
 		}
-		pID, err := b.setRecord(rrs, dopts, typeA, t.ID, 0, false)
+		_, err = b.setRecord(rrs, dopts, typeA, t.ID, pID, false)
 		if err != nil {
 			return err
 		}
@@ -693,20 +769,22 @@ func (b *Backend) getRecords(opts *model.DomainOptions, rType string) (*route53.
 //     pID: reference parent ID
 //     sub: whether is sub domain or not
 func (b *Backend) setRecord(rrs *route53.ResourceRecordSet, opts *model.DomainOptions, rType string, tID, pID int64, sub bool) (int64, error) {
-	input := route53.ChangeResourceRecordSetsInput{
-		HostedZoneId: aws.String(b.ZoneID),
-		ChangeBatch: &route53.ChangeBatch{
-			Changes: []*route53.Change{
-				{
-					Action:            aws.String("UPSERT"),
-					ResourceRecordSet: rrs,
+	if len(rrs.ResourceRecords) >= 1 {
+		input := route53.ChangeResourceRecordSetsInput{
+			HostedZoneId: aws.String(b.ZoneID),
+			ChangeBatch: &route53.ChangeBatch{
+				Changes: []*route53.Change{
+					{
+						Action:            aws.String("UPSERT"),
+						ResourceRecordSet: rrs,
+					},
 				},
 			},
-		},
-	}
+		}
 
-	if _, err := b.Svc.ChangeResourceRecordSets(&input); err != nil {
-		return 0, errors.Wrapf(err, errUpsertRecord, rType, opts.String())
+		if _, err := b.Svc.ChangeResourceRecordSets(&input); err != nil {
+			return 0, errors.Wrapf(err, errUpsertRecord, rType, opts.String())
+		}
 	}
 
 	// set record to database
