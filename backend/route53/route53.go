@@ -23,8 +23,6 @@ const (
 	Name             = "route53"
 	typeA            = "A"
 	typeTXT          = "TXT"
-	typeToken        = "TOKEN"
-	typeFrozen       = "FROZEN"
 	maxSlugHashTimes = 100
 	slugLength       = 6
 	tokenLength      = 32
@@ -85,7 +83,7 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 	// get token from database
 	token, err := database.GetDatabase().QueryToken(opts.Fqdn)
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
 	}
 
 	records, err := b.getRecords(opts, typeA)
@@ -99,7 +97,7 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 
 		e, err := database.GetDatabase().QueryA(emptyName)
 		if err != nil || e.Fqdn == "" {
-			return d, errors.Wrapf(err, errOperateDatabase, typeA, emptyName)
+			return d, errors.Wrapf(err, errQueryAFromDatabase, emptyName)
 		}
 
 		subs, _ := database.GetDatabase().ListSubA(e.ID)
@@ -167,13 +165,13 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 
 	// save the slug name to the database in case of the name will be re-generate
 	if err := database.GetDatabase().InsertFrozen(strings.Split(opts.Fqdn, ".")[0]); err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, strings.Split(opts.Fqdn, ".")[0])
+		return d, errors.Wrapf(err, errInsertFrozenToDatabase, strings.Split(opts.Fqdn, ".")[0])
 	}
 
 	// save token to the database
 	tID, err := b.SetToken(opts, false)
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+		return d, errors.Wrapf(err, errInsertTokenToDatabase, opts.Fqdn)
 	}
 
 	// set empty A record, sometimes we need to hold domain records although domain has no hosts value
@@ -189,7 +187,7 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 	}
 	pID, err := b.setRecordToDatabase(rrs, typeA, tID, 0, false)
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeA, aws.StringValue(rrs.Name))
+		return d, errors.Wrapf(err, errInsertRecordToDatabase, typeA, aws.StringValue(rrs.Name))
 	}
 
 	// set A record
@@ -267,7 +265,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 
 	e, err := database.GetDatabase().QueryA(fmt.Sprintf("empty.%s", opts.Fqdn))
 	if err != nil || e.Fqdn == "" {
-		return d, errors.Wrapf(err, errOperateDatabase, typeA, opts.String())
+		return d, errors.Wrapf(err, errQueryAFromDatabase, opts.Fqdn)
 	}
 
 	if _, err := b.setRecord(rrs, opts, typeA, e.TID, 0, false); err != nil {
@@ -379,11 +377,11 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 		}
 	} else {
 		if err := database.GetDatabase().DeleteA(opts.Fqdn); err != nil {
-			return errors.Wrapf(err, errOperateDatabase, typeA, opts.Fqdn)
+			return errors.Wrapf(err, errDeleteAFromDatabase, opts.Fqdn)
 		}
 		w := fmt.Sprintf("\\052.%s", opts.Fqdn)
 		if err := database.GetDatabase().DeleteA(w); err != nil {
-			return errors.Wrapf(err, errOperateDatabase, typeA, w)
+			return errors.Wrapf(err, errDeleteAFromDatabase, w)
 		}
 	}
 
@@ -399,7 +397,7 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 	// delete empty record from database
 	emptyName := fmt.Sprintf("%s.%s", "empty", opts.Fqdn)
 	if err := database.GetDatabase().DeleteA(emptyName); err != nil {
-		return errors.Wrapf(err, errOperateDatabase, typeA, emptyName)
+		return errors.Wrapf(err, errDeleteAFromDatabase, emptyName)
 	}
 
 	return nil
@@ -411,16 +409,16 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 	// renew token record
 	t, err := database.GetDatabase().QueryToken(opts.Fqdn)
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
 	}
 	_, _, err = database.GetDatabase().RenewToken(t.Fqdn)
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+		return d, errors.Wrapf(err, errRenewTokenFromDatabase, opts.Fqdn)
 	}
 
 	// renew frozen record
 	if err := database.GetDatabase().RenewFrozen(strings.Split(opts.Fqdn, ".")[0]); err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeFrozen, opts.String())
+		return d, errors.Wrapf(err, errRenewFrozenFromDatabase, opts.Fqdn)
 	}
 
 	return b.Get(opts)
@@ -436,13 +434,13 @@ func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error)
 
 	valid, _, _, t := b.filterRecords(records.ResourceRecordSets, opts, typeTXT)
 	if !valid || len(t) < 1 {
-		return d, errors.Errorf(errEmptyRecord, typeTXT, opts.String())
+		return d, errors.Errorf(errFilterRecords, typeTXT, opts.Fqdn)
 	}
 
 	// get token from database
 	token, err := database.GetDatabase().QueryToken(b.findSlugWithZone(opts.Fqdn))
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
 	}
 
 	d.Fqdn = opts.Fqdn
@@ -461,12 +459,12 @@ func (b *Backend) SetText(opts *model.DomainOptions) (d model.Domain, err error)
 	}
 
 	if valid, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT); valid {
-		return d, errors.Errorf(errExistRecord, typeTXT, opts.String())
+		return d, errors.Errorf(errExistRecord, typeTXT, opts.Fqdn)
 	}
 
 	r, err := database.GetDatabase().QueryToken(b.findSlugWithZone(opts.Fqdn))
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeTXT, opts.String())
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
 	}
 
 	rrs := &route53.ResourceRecordSet{
@@ -496,12 +494,12 @@ func (b *Backend) UpdateText(opts *model.DomainOptions) (d model.Domain, err err
 	}
 
 	if valid, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT); !valid {
-		return d, errors.Errorf(errEmptyRecord, typeTXT, opts.String())
+		return d, errors.Errorf(errFilterRecords, typeTXT, opts.Fqdn)
 	}
 
 	r, err := database.GetDatabase().QueryTXT(opts.Fqdn)
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeTXT, opts.String())
+		return d, errors.Wrapf(err, errQueryTXTFromDatabase, opts.Fqdn)
 	}
 
 	rrs := &route53.ResourceRecordSet{
@@ -522,7 +520,7 @@ func (b *Backend) UpdateText(opts *model.DomainOptions) (d model.Domain, err err
 	// get token from database
 	token, err := database.GetDatabase().QueryToken(b.findSlugWithZone(opts.Fqdn))
 	if err != nil {
-		return d, errors.Wrapf(err, errOperateDatabase, typeToken, opts.String())
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
 	}
 
 	d.Fqdn = opts.Fqdn
@@ -543,7 +541,7 @@ func (b *Backend) DeleteText(opts *model.DomainOptions) error {
 
 	v, _, _, t := b.filterRecords(records.ResourceRecordSets, opts, typeTXT)
 	if !v {
-		return errors.Errorf(errEmptyRecord, typeTXT, opts.String())
+		return errors.Errorf(errFilterRecords, typeTXT, opts.Fqdn)
 	}
 
 	for _, rr := range t {
@@ -603,7 +601,7 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 		}
 		t, err := database.GetDatabase().QueryToken(b.findSlugWithZone(dopts.Fqdn))
 		if err != nil {
-			return errors.Wrapf(err, errOperateDatabase, typeA, dopts.String())
+			return errors.Wrapf(err, errQueryTokenFromDatabase, dopts.Fqdn)
 		}
 
 		// set empty A record, sometimes we need to hold domain records although domain has no hosts value
@@ -619,7 +617,7 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 		}
 		pID, err := b.setRecordToDatabase(rrs, typeA, t.ID, 0, false)
 		if err != nil {
-			return errors.Wrapf(err, errOperateDatabase, typeA, aws.StringValue(rrs.Name))
+			return errors.Wrapf(err, errInsertRecordToDatabase, typeA, aws.StringValue(rrs.Name))
 		}
 
 		rr := make([]*route53.ResourceRecord, 0)
@@ -756,7 +754,7 @@ func (b *Backend) getRecords(opts *model.DomainOptions, rType string) (*route53.
 
 	output, err := b.Svc.ListResourceRecordSets(&input)
 	if err != nil {
-		return output, errors.Wrapf(err, errEmptyRecord, rType, opts.String())
+		return output, errors.Wrapf(err, errNoRoute53Record, rType, opts.Fqdn)
 	}
 
 	return output, nil
@@ -783,14 +781,14 @@ func (b *Backend) setRecord(rrs *route53.ResourceRecordSet, opts *model.DomainOp
 		}
 
 		if _, err := b.Svc.ChangeResourceRecordSets(&input); err != nil {
-			return 0, errors.Wrapf(err, errUpsertRecord, rType, opts.String())
+			return 0, errors.Wrapf(err, errUpsertRoute53Record, rType, opts.Fqdn)
 		}
 	}
 
 	// set record to database
 	id, err := b.setRecordToDatabase(rrs, rType, tID, pID, sub)
 	if err != nil {
-		return 0, errors.Wrapf(err, errOperateDatabase, rType, opts.String())
+		return 0, errors.Wrapf(err, errInsertRecordToDatabase, rType, opts.Fqdn)
 	}
 
 	return id, nil
@@ -818,12 +816,12 @@ func (b *Backend) deleteRecord(rrs *route53.ResourceRecordSet, opts *model.Domai
 		},
 	}
 	if _, err := b.Svc.ChangeResourceRecordSets(&input); err != nil {
-		return errors.Wrapf(err, errDeleteRecord, rType, opts.String())
+		return errors.Wrapf(err, errDeleteRoute53Record, rType, opts.Fqdn)
 	}
 
 	// delete record from database
 	if err := b.deleteRecordFromDatabase(rrs, rType, sub); err != nil {
-		return errors.Wrapf(err, errOperateDatabase, rType, opts.String())
+		return errors.Wrapf(err, errDeleteRecordsFromDatabase, rType, opts.Fqdn)
 	}
 
 	return nil

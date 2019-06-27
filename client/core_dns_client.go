@@ -74,17 +74,17 @@ func (c *Client) do(req *http.Request) (model.Response, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return data, errors.Wrap(err, "Read response body error")
+		return data, errors.Wrap(err, "read response body error")
 	}
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return data, errors.Wrapf(err, "Decode response error: %s", string(body))
+		return data, errors.Wrapf(err, "decode response error: %s", string(body))
 	}
-	logrus.Debugf("Got response entry: %+v", data)
+	logrus.Debugf("got response entry: %+v", data)
 	if code := resp.StatusCode; code < 200 || code > 300 {
 		if data.Message != "" {
-			return data, errors.Errorf("Got request error: %s", data.Message)
+			return data, errors.Errorf("got request error: %s", data.Message)
 		}
 	}
 
@@ -100,7 +100,7 @@ func (c *Client) ApplyDomain(hosts []string, subDomain map[string][]string) (boo
 	}
 
 	if d == nil {
-		logrus.Debugf("Fqdn configuration does not exist, need to create a new one")
+		logrus.Debugf("fqdn configuration does not exist, need to create a new one")
 		fqdn, err := c.CreateDomain(hosts)
 		return true, fqdn, err
 	}
@@ -108,11 +108,11 @@ func (c *Client) ApplyDomain(hosts []string, subDomain map[string][]string) (boo
 	sort.Strings(d.Hosts)
 	sort.Strings(hosts)
 	if !reflect.DeepEqual(d.Hosts, hosts) || !reflect.DeepEqual(d.SubDomain, subDomain) {
-		logrus.Debugf("Fqdn %s or Subdomains %+v has some changes, need to update", d.Fqdn, d.SubDomain)
+		logrus.Debugf("fqdn %s or subdomains %+v has some changes, need to update", d.Fqdn, d.SubDomain)
 		fqdn, err := c.UpdateDomain(hosts, subDomain)
 		return false, fqdn, err
 	}
-	logrus.Debugf("Fqdn %s has no changes, no need to update", d.Fqdn)
+	logrus.Debugf("fqdn %s has no changes, no need to update", d.Fqdn)
 	fqdn, _, _ := c.getSecret()
 
 	return false, fqdn, nil
