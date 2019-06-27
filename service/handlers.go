@@ -13,7 +13,7 @@ import (
 )
 
 func returnHTTPError(w http.ResponseWriter, httpStatus int, err error) {
-	logrus.Errorf("Got a response error: %v", err)
+	logrus.Errorf("got a response error: %v", err)
 	o := model.Response{
 		Status:  httpStatus,
 		Message: err.Error(),

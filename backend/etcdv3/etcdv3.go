@@ -87,7 +87,7 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 	}
 
 	if len(kvs) <= 0 {
-		return d, errors.Errorf(errEmptyRecord, typeA, opts.String())
+		return d, errors.Errorf(errNoLookupResults, typeA, path)
 	}
 
 	subs := make(map[string][]string, 0)
@@ -193,11 +193,11 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 
 	kvs, err := b.lookupKeys(path)
 	if err != nil {
-		return d, errors.Wrapf(err, errEmptyRecord, typeA, opts.Fqdn)
+		return d, err
 	}
 
 	if len(kvs) <= 0 {
-		return d, errors.Errorf(errEmptyRecord, typeA, opts.String())
+		return d, errors.Errorf(errNoLookupResults, typeA, path)
 	}
 
 	if _, err = b.setRecord(path, opts, true); err != nil {
@@ -237,7 +237,7 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 			_, err := b.C.Delete(ctx, path)
 			cancel()
 			if err != nil {
-				return errors.Wrapf(err, errDeleteRecord, typeA, opts.Fqdn)
+				return errors.Wrapf(err, errDeleteRecord, typeA, path)
 			}
 		}
 
@@ -246,7 +246,7 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 	defer cancel()
 
 	if _, err := b.C.Delete(ctx, path); err != nil {
-		return errors.Wrapf(err, errDeleteRecord, typeA, opts.Fqdn)
+		return errors.Wrapf(err, errDeleteRecord, typeA, path)
 	}
 	for prefix := range d.SubDomain {
 		path := getPath(b.Prefix, fmt.Sprintf("%s.%s", prefix, opts.Fqdn))
@@ -255,7 +255,7 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 		_, err := b.C.Delete(ctx, path, clientv3.WithPrefix())
 		cancel()
 		if err != nil {
-			return errors.Wrapf(err, errDeleteRecord, typeA, opts.Fqdn)
+			return errors.Wrapf(err, errDeleteRecord, typeA, path)
 		}
 	}
 
@@ -283,7 +283,7 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 	}
 
 	if len(kvs) <= 0 {
-		return d, errors.Errorf(errEmptyRecord, typeA, opts.String())
+		return d, errors.Errorf(errNoLookupResults, typeA, path)
 	}
 
 	subs := make(map[string][]string, 0)
@@ -344,7 +344,7 @@ func (b *Backend) SetText(opts *model.DomainOptions) (d model.Domain, err error)
 	logrus.Debugf("set %s record for domain options: %s", typeTXT, opts.String())
 
 	if len(strings.Split(opts.Fqdn, "."))-len(strings.Split(b.Domain, ".")) <= 1 {
-		return d, errors.Errorf(errNotValidFqdn, opts.Fqdn)
+		return d, errors.Errorf(errNotValidDomainName, opts.Fqdn)
 	}
 
 	path := getPath(b.Prefix, opts.Fqdn)
@@ -360,7 +360,7 @@ func (b *Backend) SetText(opts *model.DomainOptions) (d model.Domain, err error)
 	defer cancel()
 
 	if _, err := b.C.Put(ctx, path, formatTextValue(opts.Text), clientv3.WithLease(clientv3.LeaseID(leaseID))); err != nil {
-		return d, errors.Wrapf(err, errSetRecordWithLease, typeTXT, d.Fqdn)
+		return d, errors.Wrapf(err, errSetRecordWithLease, typeTXT, path, leaseID)
 	}
 
 	return b.GetText(opts)
@@ -370,7 +370,7 @@ func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error)
 	logrus.Debugf("get %s record for domain options: %s", typeTXT, opts.String())
 
 	if len(strings.Split(opts.Fqdn, "."))-len(strings.Split(b.Domain, ".")) <= 1 {
-		return d, errors.Errorf(errNotValidFqdn, opts.Fqdn)
+		return d, errors.Errorf(errNotValidDomainName, opts.Fqdn)
 	}
 
 	path := getPath(b.Prefix, opts.Fqdn)
@@ -380,11 +380,11 @@ func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error)
 
 	resp, err := b.C.Get(ctx, path)
 	if err != nil {
-		return d, errors.Wrapf(err, errEmptyRecord, typeTXT, opts.Fqdn)
+		return d, errors.Wrapf(err, errEmptyRecord, typeTXT, path)
 	}
 
 	if resp.Count <= 0 {
-		return d, errors.Errorf(errEmptyRecord, typeTXT, opts.Fqdn)
+		return d, errors.Errorf(errEmptyRecord, typeTXT, path)
 	}
 
 	lease, err := b.getLease(resp.Kvs[0].Lease)
@@ -411,11 +411,11 @@ func (b *Backend) UpdateText(opts *model.DomainOptions) (d model.Domain, err err
 	logrus.Debugf("update %s record for domain options: %s", typeTXT, opts.String())
 
 	if len(strings.Split(opts.Fqdn, "."))-len(strings.Split(b.Domain, ".")) <= 1 {
-		return d, errors.Errorf(errNotValidFqdn, opts.Fqdn)
+		return d, errors.Errorf(errNotValidDomainName, opts.Fqdn)
 	}
 
 	if _, err := b.GetText(opts); err != nil {
-		return d, errors.Errorf(errEmptyRecord, typeTXT, opts.Fqdn)
+		return d, err
 	}
 
 	path := getPath(b.Prefix, opts.Fqdn)
@@ -431,7 +431,7 @@ func (b *Backend) UpdateText(opts *model.DomainOptions) (d model.Domain, err err
 	defer cancel()
 
 	if _, err := b.C.Put(ctx, path, formatTextValue(opts.Text), clientv3.WithLease(clientv3.LeaseID(leaseID)), clientv3.WithPrevKV()); err != nil {
-		return d, errors.Wrapf(err, errSetRecordWithLease, typeTXT, d.Fqdn)
+		return d, errors.Wrapf(err, errSetRecordWithLease, typeTXT, path, leaseID)
 	}
 
 	return b.GetText(opts)
@@ -446,7 +446,7 @@ func (b *Backend) DeleteText(opts *model.DomainOptions) error {
 	defer cancel()
 
 	if _, err := b.C.Delete(ctx, path); err != nil {
-		return errors.Wrapf(err, errDeleteRecord, typeTXT, opts.Fqdn)
+		return errors.Wrapf(err, errDeleteRecord, typeTXT, path)
 	}
 
 	return nil
@@ -466,11 +466,11 @@ func (b *Backend) GetToken(fqdn string) (string, error) {
 	}
 
 	if resp.Count <= 0 {
-		return "", errors.Errorf(errEmptyRecord, typeToken, fqdn)
+		return "", errors.Errorf(errEmptyRecord, typeToken, path)
 	}
 
 	if resp.Count > 1 {
-		return "", errors.Errorf(errMultiRecords, typeToken, fqdn)
+		return "", errors.Errorf(errMultiRecords, typeToken, path)
 	}
 
 	return string(resp.Kvs[0].Value), nil
@@ -575,11 +575,11 @@ func (b *Backend) setRecord(path string, opts *model.DomainOptions, exist bool) 
 	}
 
 	if err := b.syncRecords(opts.Hosts, hosts, path, clientv3.LeaseID(leaseID)); err != nil {
-		return d, errors.Wrapf(err, errSyncRecords, typeA, opts.Fqdn)
+		return d, errors.Wrapf(err, errSyncRecords, typeA, path)
 	}
 
 	if err := b.setSubRecords(opts, subs, leaseID); err != nil {
-		return d, errors.Wrapf(err, errSetSubRecordsWithLease, typeA, opts.Fqdn)
+		return d, errors.Wrapf(err, errSetSubRecordsWithLease, typeA, opts.Fqdn, leaseID)
 	}
 
 	d.Fqdn = opts.Fqdn
@@ -621,7 +621,7 @@ func (b *Backend) setSubRecords(opts *model.DomainOptions, origins map[string][]
 		}
 
 		if err := b.syncRecords(values, hosts, path, clientv3.LeaseID(leaseID)); err != nil {
-			return errors.Wrapf(err, errSyncSubRecords, typeA, opts.Fqdn)
+			return errors.Wrapf(err, errSyncSubRecords, typeA, path)
 		}
 	}
 
@@ -673,11 +673,11 @@ func (b *Backend) setToken(opts *model.DomainOptions, exist bool) (int64, int64,
 
 		resp, err := b.C.Get(ctx, path)
 		if err != nil {
-			return 0, -1, errors.Wrapf(err, errEmptyRecord, typeToken, opts.Fqdn)
+			return 0, -1, errors.Wrapf(err, errEmptyRecord, typeToken, path)
 		}
 
 		if resp.Count <= 0 {
-			return 0, -1, errors.Errorf(errEmptyRecord, typeToken, opts.Fqdn)
+			return 0, -1, errors.Errorf(errEmptyRecord, typeToken, path)
 		}
 
 		token = string(resp.Kvs[0].Value)
@@ -705,7 +705,7 @@ func (b *Backend) setToken(opts *model.DomainOptions, exist bool) (int64, int64,
 	defer cancel()
 
 	if _, err := b.C.Put(ctx, path, token, clientv3.WithLease(clientv3.LeaseID(leaseID))); err != nil {
-		return 0, -1, errors.Wrapf(err, errSetRecordWithLease, typeToken, opts.Fqdn)
+		return 0, -1, errors.Wrapf(err, errSetRecordWithLease, typeToken, path, leaseID)
 	}
 
 	return leaseID, leaseTTL, nil
@@ -724,7 +724,7 @@ func (b *Backend) lockSlugName(fqdn, slug string, exist bool) error {
 		}
 
 		if len(kvs) <= 0 {
-			return errors.Errorf(errEmptyRecord, typeA, fqdn)
+			return errors.Errorf(errEmptyRecord, typeA, path)
 		}
 
 		leaseID = kvs[0].Lease
@@ -741,7 +741,7 @@ func (b *Backend) lockSlugName(fqdn, slug string, exist bool) error {
 	defer cancel()
 
 	if _, err := b.C.Put(ctx, path, "", clientv3.WithLease(clientv3.LeaseID(leaseID))); err != nil {
-		return errors.Wrapf(err, errSetRecordWithLease, typeFrozen, path)
+		return errors.Wrapf(err, errSetRecordWithLease, typeFrozen, path, leaseID)
 	}
 
 	return nil

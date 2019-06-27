@@ -101,7 +101,7 @@ var routes = Routes{
 func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
-	logrus.Debugf("Setting HTTP handlers")
+	logrus.Debugf("setting HTTP handlers")
 	for _, route := range routes {
 		router.
 			Methods(route.Method).
