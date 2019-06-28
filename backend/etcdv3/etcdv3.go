@@ -495,14 +495,134 @@ func (b *Backend) GetTokenCount() (int64, error) {
 }
 
 func (b *Backend) MigrateFrozen(opts *model.MigrateFrozen) error {
+	path := fmt.Sprintf("%s%s/%s", b.Prefix, frozenPath, opts.Path)
+
+	id, _, err := b.grantLease(opts.Expiration.Unix() - time.Now().Unix())
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+	defer cancel()
+
+	if _, err := b.C.Put(ctx, path, "", clientv3.WithLease(clientv3.LeaseID(id))); err != nil {
+		return errors.Wrapf(err, errSetRecordWithLease, typeFrozen, path, id)
+	}
+
 	return nil
 }
 
 func (b *Backend) MigrateToken(opts *model.MigrateToken) error {
+	path := getTokenPath(strings.Split(opts.Path, "/")[2])
+
+	id, _, err := b.grantLease(opts.Expiration.Unix() - time.Now().Unix())
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+	defer cancel()
+
+	if _, err := b.C.Put(ctx, path, opts.Token, clientv3.WithLease(clientv3.LeaseID(id))); err != nil {
+		return errors.Wrapf(err, errSetRecordWithLease, typeToken, path, id)
+	}
+
 	return nil
 }
 
 func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
+	if opts.Text != "" {
+		// migrate TXT record
+		dopts := &model.DomainOptions{
+			Fqdn: opts.Fqdn,
+			Text: opts.Text,
+		}
+		if _, err := b.SetText(dopts); err != nil {
+			return err
+		}
+	} else {
+		dopts := &model.DomainOptions{
+			Fqdn:      opts.Fqdn,
+			Hosts:     opts.Hosts,
+			SubDomain: opts.SubDomain,
+		}
+
+		path := getPath(b.Prefix, dopts.Fqdn)
+
+		leaseID, _, err := b.setToken(dopts, true)
+		if err != nil {
+			return err
+		}
+
+		// make sure domain record is exist, although no hosts value
+		ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+		defer cancel()
+
+		_, err = b.C.Put(ctx, path, formatValue(""), clientv3.WithLease(clientv3.LeaseID(leaseID)))
+		if err != nil {
+			return err
+		}
+
+		kvs, err := b.lookupKeys(path)
+		if err != nil {
+			return err
+		}
+
+		subs := make(map[string][]string, 0)
+		hosts := make([]string, 0)
+
+		for _, v := range kvs {
+			k := string(v.Key)
+			prefix := findSubPrefix(k, path)
+
+			m, err := unmarshalToMap(v.Value)
+			if err != nil {
+				return err
+			}
+
+			isText := false
+			if _, ok := m["text"]; ok {
+				isText = true
+			}
+
+			if prefix != "" && !strings.Contains(prefix, "_") && !isText {
+				subs[prefix] = make([]string, 0)
+				continue
+			}
+
+			hosts = append(hosts, m["host"])
+		}
+
+		for k := range subs {
+			n := fmt.Sprintf("%s.%s", k, dopts.Fqdn)
+			p := getPath(b.Prefix, n)
+
+			kvs, err := b.lookupKeys(p)
+			if err != nil {
+				return err
+			}
+
+			ss := make([]string, 0)
+			for _, v := range kvs {
+				m, err := unmarshalToMap(v.Value)
+				if err != nil {
+					return err
+				}
+				ss = append(ss, m["host"])
+			}
+
+			subs[k] = ss
+		}
+
+		if err := b.syncRecords(dopts.Hosts, hosts, path, clientv3.LeaseID(leaseID)); err != nil {
+			return errors.Wrapf(err, errSyncRecords, typeA, path)
+		}
+
+		if err := b.setSubRecords(dopts, subs, leaseID); err != nil {
+			return errors.Wrapf(err, errSetSubRecordsWithLease, typeA, dopts.Fqdn, leaseID)
+		}
+	}
+
 	return nil
 }
 

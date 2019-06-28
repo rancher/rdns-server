@@ -9,6 +9,7 @@ services:
       - ./config:/etc/rdns/config
     environment:
       - ETCD_ENDPOINTS=${ETCD_ENDPOINTS}
+      - DOMAIN=${DOMAIN}
     logging:
       driver: json-file
       options:
