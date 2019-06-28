@@ -26,7 +26,7 @@ const (
 	maxSlugHashTimes = 100
 	slugLength       = 6
 	tokenLength      = 32
-	route53TTL       = 300
+	route53TTL       = 10
 )
 
 type Backend struct {
