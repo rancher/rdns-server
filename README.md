@@ -22,9 +22,11 @@ AWS_HOSTED_ZONE_ID="[aws hosted zone ID]" AWS_ACCESS_KEY_ID="[aws access key ID]
 ```
 
 #### Running RDNS CoreDNS
+It's need to modify the configuration files in the `deploy/etcdv3/config` directory if not using the default domain
+
 ```shell
 docker-compose -f deploy/etcdv3/etcd-compose.yaml up -d
-ETCD_ENDPOINTS="http://127.0.0.1:2379" docker-compose -f deploy/etcdv3/rdns-compose.yaml up -d
+DOMAIN="lb.rancher.com" ETCD_ENDPOINTS="http://127.0.0.1:2379" docker-compose -f deploy/etcdv3/rdns-compose.yaml up -d
 ```
 
 #### Migrate Datum From v0.4.x To v0.5.x
