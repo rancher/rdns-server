@@ -1,5 +1,7 @@
 # API References
 
+By default Route53 will use wildcard records, which can be turned off by setting the `?normal=true` parameter on POST/GET/PUT/DELETE.
+
 | API | Method | Header | Payload | Description |
 | --- | ------ | ------ | ------- | ----------- |
 | /v1/domain | POST | **Content-Type:** application/json <br/><br/> **Accept:** application/json | {"hosts": ["4.4.4.4", "2.2.2.2"], "subdomain": {"sub1": ["9.9.9.9","4.4.4.4"], "sub2": ["5.5.5.5","6.6.6.6"]}} | Create A Records |
