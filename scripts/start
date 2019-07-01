@@ -1,0 +1,51 @@
+#!/bin/bash
+set -e
+
+source $(dirname $0)/version
+
+cd $(dirname $0)/..
+
+if [ $# -lt 1 ]; then
+	echo "insufficient args, please run as: ./start route53 or ./start etcdv3"
+	exit 1
+fi
+
+if [ $1 == "route53" ]; then
+	if [ -z $MYSQL_ROOT_PASSWORD ];then
+		echo "please set MYSQL_ROOT_PASSWORD environment"
+		exit 1
+	fi
+
+	if [ -z $AWS_HOSTED_ZONE_ID ];then
+		echo "please set AWS_HOSTED_ZONE_ID environment"
+		exit 1
+	fi
+
+	if [ -z $AWS_ACCESS_KEY_ID ];then
+		echo "please set AWS_ACCESS_KEY_ID environment"
+		exit 1
+	fi
+
+	if [ -z $AWS_SECRET_ACCESS_KEY ];then
+		echo "please set AWS_SECRET_ACCESS_KEY environment"
+		exit 1
+	fi
+
+	if [ -z $DSN ];then
+		echo "please set DSN environment"
+		exit 1
+	fi
+	docker-compose -f deploy/route53/rdns-compose.yaml up -d
+fi
+
+if [ $1 == "etcdv3" ]; then
+	if [ -z $DOMAIN ];then
+		echo "please set DOMAIN environment"
+		exit 1
+	fi
+	if [ -z $ETCD_ENDPOINTS ];then
+		echo "please set ETCD_ENDPOINTS environment"
+		exit 1
+	fi
+	docker-compose -f deploy/etcdv3/rdns-compose.yaml up -d
+fi
