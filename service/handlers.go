@@ -78,10 +78,16 @@ func apiHandler(f http.Handler) http.Handler {
 }
 
 func createDomain(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+
 	opts, err := model.ParseDomainOptions(r)
 	if err != nil {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
 	}
 
 	b := backend.GetBackend()
@@ -94,11 +100,16 @@ func createDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDomain(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 	msg := ""
 
 	opts := &model.DomainOptions{Fqdn: fqdn}
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
+
 	b := backend.GetBackend()
 	d, err := b.Get(opts)
 	if err != nil {
@@ -112,6 +123,7 @@ func renewDomain(w http.ResponseWriter, r *http.Request) {
 	fqdn := vars["fqdn"]
 
 	opts := &model.DomainOptions{Fqdn: fqdn}
+
 	b := backend.GetBackend()
 	d, err := b.Renew(opts)
 	if err != nil {
@@ -123,6 +135,7 @@ func renewDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateDomain(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 
@@ -131,7 +144,11 @@ func updateDomain(w http.ResponseWriter, r *http.Request) {
 		returnHTTPError(w, http.StatusInternalServerError, err)
 		return
 	}
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
 	opts.Fqdn = fqdn
+
 	b := backend.GetBackend()
 	d, err := b.Update(opts)
 	if err != nil {
@@ -143,10 +160,15 @@ func updateDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteDomain(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]
 
 	opts := &model.DomainOptions{Fqdn: fqdn}
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
+
 	b := backend.GetBackend()
 	err := b.Delete(opts)
 	if err != nil {
