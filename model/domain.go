@@ -30,6 +30,7 @@ type DomainOptions struct {
 	Hosts     []string            `json:"hosts"`
 	SubDomain map[string][]string `json:"subdomain"`
 	Text      string              `json:"text"`
+	Normal    bool                `json:"normal"`
 }
 
 func (d *DomainOptions) String() string {

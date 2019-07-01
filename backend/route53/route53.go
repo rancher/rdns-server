@@ -125,7 +125,13 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 	ca, cs := b.convertARecords(a, s)
 
 	d.Fqdn = opts.Fqdn
-	d.Hosts = ca[fmt.Sprintf("\\052.%s", opts.Fqdn)]
+	if opts.Normal {
+		// only return records not wildcard records
+		d.Hosts = ca[opts.Fqdn]
+	} else {
+		// only return wildcard records
+		d.Hosts = ca[fmt.Sprintf("\\052.%s", opts.Fqdn)]
+	}
 	d.SubDomain = cs
 	d.Expiration = convertExpiration(time.Unix(0, token.CreatedOn), int(b.TTL.Nanoseconds()))
 
@@ -190,7 +196,7 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 		return d, errors.Wrapf(err, errInsertRecordToDatabase, typeA, aws.StringValue(rrs.Name))
 	}
 
-	// set wildcard A record
+	// set A or wildcard A record
 	rr := make([]*route53.ResourceRecord, 0)
 	for _, h := range opts.Hosts {
 		rr = append(rr, &route53.ResourceRecord{
@@ -199,7 +205,9 @@ func (b *Backend) Set(opts *model.DomainOptions) (d model.Domain, err error) {
 	}
 	rrs.Name = aws.String(opts.Fqdn)
 	rrs.ResourceRecords = rr
-	rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+	if !opts.Normal {
+		rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+	}
 	if _, err := b.setRecord(rrs, opts, typeA, tID, pID, false); err != nil {
 		return d, err
 	}
@@ -260,8 +268,10 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 		return d, errors.Wrapf(err, errQueryAFromDatabase, opts.Fqdn)
 	}
 
-	// update wildcard A records
-	rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+	// update A or wildcard A records
+	if !opts.Normal {
+		rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+	}
 	if _, err := b.setRecord(rrs, opts, typeA, e.TID, e.ID, false); err != nil {
 		return d, err
 	}
@@ -289,16 +299,20 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 
 	// delete useless domain A records
 	if len(opts.Hosts) <= 0 {
-		if _, ok := as[fmt.Sprintf("\\052.%s", opts.Fqdn)]; ok {
+		name := opts.Fqdn
+		if !opts.Normal {
+			name = fmt.Sprintf("\\052.%s", opts.Fqdn)
+		}
+		if _, ok := as[name]; ok {
 			rr := make([]*route53.ResourceRecord, 0)
-			for _, h := range as[fmt.Sprintf("\\052.%s", opts.Fqdn)] {
+			for _, h := range as[name] {
 				rr = append(rr, &route53.ResourceRecord{
 					Value: aws.String(h),
 				})
 			}
 
 			rrs := &route53.ResourceRecordSet{
-				Name:            aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn)),
+				Name:            aws.String(name),
 				Type:            aws.String(typeA),
 				ResourceRecords: rr,
 				TTL:             aws.Int64(int64(route53TTL)),
@@ -347,16 +361,25 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 
 	_, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 
-	// delete wildcard A records
+	// delete A or wildcard A records
 	if len(a) > 0 {
 		for _, rr := range a {
-			rr.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+			if !opts.Normal {
+				rr.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+			} else {
+				rr.Name = aws.String(opts.Fqdn)
+			}
+
 			if err := b.deleteRecord(rr, opts, typeA, false); err != nil {
 				return err
 			}
 		}
 	} else {
-		w := fmt.Sprintf("\\052.%s", opts.Fqdn)
+		w := opts.Fqdn
+		if !opts.Normal {
+			w = fmt.Sprintf("\\052.%s", opts.Fqdn)
+		}
+
 		if err := database.GetDatabase().DeleteA(w); err != nil {
 			return errors.Wrapf(err, errDeleteAFromDatabase, w)
 		}
@@ -596,7 +619,7 @@ func (b *Backend) MigrateRecord(opts *model.MigrateRecord) error {
 			return errors.Wrapf(err, errInsertRecordToDatabase, typeA, aws.StringValue(rrs.Name))
 		}
 
-		// set wildcard A record
+		// set A or wildcard A record
 		rr := make([]*route53.ResourceRecord, 0)
 		for _, h := range dopts.Hosts {
 			rr = append(rr, &route53.ResourceRecord{
@@ -804,7 +827,7 @@ func (b *Backend) deleteRecord(rrs *route53.ResourceRecordSet, opts *model.Domai
 //       1. Only TXT record which equal to the opts.Fqdn is valid
 //   A records:
 //     valid:
-//       1. wildcard record is valid
+//       1. wildcard record is valid when normal option is set to false
 //       2. A record which equal to the opts.Fqdn is valid
 //       3. sub-domain A record which parent is opts.Fqdn is valid
 func (b *Backend) filterRecords(rrs []*route53.ResourceRecordSet, opts *model.DomainOptions, rType string) (v bool, a, s, t []*route53.ResourceRecordSet) {
@@ -819,14 +842,29 @@ func (b *Backend) filterRecords(rrs []*route53.ResourceRecordSet, opts *model.Do
 			name := strings.TrimRight(aws.StringValue(rs.Name), ".")
 			nss := strings.Split(name, ".")
 			oss := strings.Split(opts.Fqdn, ".")
-			if (name == opts.Fqdn || name == fmt.Sprintf("\\052.%s", opts.Fqdn)) && aws.StringValue(rs.Type) == rType {
-				v = true
-				a = append(a, rs)
-				continue
-			}
-			if (len(nss)-len(oss)) == 1 && strings.Contains(name, opts.Fqdn) && aws.StringValue(rs.Type) == rType && !strings.Contains(name, "\\052") {
-				s = append(s, rs)
-				continue
+			if opts.Normal {
+				if strings.Contains(name, "*") || strings.Contains(name, "\\052") {
+					continue
+				}
+				if name == opts.Fqdn && aws.StringValue(rs.Type) == rType {
+					v = true
+					a = append(a, rs)
+					continue
+				}
+				if (len(nss)-len(oss)) == 1 && strings.Contains(name, opts.Fqdn) && aws.StringValue(rs.Type) == rType {
+					s = append(s, rs)
+					continue
+				}
+			} else {
+				if (name == opts.Fqdn || name == fmt.Sprintf("\\052.%s", opts.Fqdn)) && aws.StringValue(rs.Type) == rType {
+					v = true
+					a = append(a, rs)
+					continue
+				}
+				if (len(nss)-len(oss)) == 1 && strings.Contains(name, opts.Fqdn) && aws.StringValue(rs.Type) == rType && !strings.Contains(name, "\\052") {
+					s = append(s, rs)
+					continue
+				}
 			}
 		}
 		return
