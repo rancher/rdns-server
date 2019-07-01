@@ -22,7 +22,7 @@ Now `rdns-server` only supports `A/TXT` records, other record types will be adde
 ## Running
 Different environment variables need to be set for different backend before running.
 
-See [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/usages.md) for the environment variables you can set.
+See [here](https://github.com/rancher/rdns-server/blob/master/doc/usages.md) for the environment variables you can set.
 
 #### Running route53 backend
 ```
@@ -46,16 +46,16 @@ Please see [here](https://github.com/Jason-ZW/rdns-migrate-tools#rdns-migrate-to
 ## Testing
 Now we only add integration tests, others will coming soon.
 
-Please see [here](https://github.com/Jason-ZW/rdns-server/tree/master/tests/integration) for details.
+Please see [here](https://github.com/rancher/rdns-server/tree/master/tests/integration) for details.
 
 ## Monitoring
 Now provides prometheus metrics data at `/metrics` endpoints.
 
 ## API References
-Please see [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/apis.md) for details.
+Please see [here](https://github.com/rancher/rdns-server/blob/master/doc/apis.md) for details.
 
 ## Usages
-Please see [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/usages.md) for details.
+Please see [here](https://github.com/rancher/rdns-server/blob/master/doc/usages.md) for details.
 
 ## License
 Copyright (c) 2014-2019 [Rancher Labs, Inc.](http://rancher.com)
