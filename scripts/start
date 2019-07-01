@@ -35,6 +35,9 @@ if [ $1 == "route53" ]; then
 		echo "please set DSN environment"
 		exit 1
 	fi
+	docker-compose -f deploy/route53/mysql-compose.yaml up -d
+	sleep 3
+	database/migrate-up.sh
 	docker-compose -f deploy/route53/rdns-compose.yaml up -d
 fi
 
