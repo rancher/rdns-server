@@ -1,7 +1,7 @@
 rdns-server
 ========
 
-[![Build Status](https://drone-pr.rancher.io/api/badges/rancher/rdns-server/status.svg)](https://drone-pr.rancher.io/rancher/rdns-server)
+[![Build Status](https://drone-publish.rancher.io/api/badges/rancher/rdns-server/status.svg)](https://drone-publish.rancher.io/rancher/rdns-server)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rancher/rdns-server)](https://goreportcard.com/report/github.com/rancher/rdns-server)
 
 The `rdns-server` implements the API interface of Dynamic DNS, its goal is to use a variety of DNS servers such as Route53, CoreDNS etc.
