@@ -20,7 +20,7 @@ Now `rdns-server` only supports `A/TXT` records, other record types will be adde
 `make`
 
 ## Running
-`rdns-server` need to set a variety of necessary environment variables before starting.
+Different environment variables need to be set for different backend before running.
 
 See [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/usages.md) for the environment variables you can set.
 
@@ -30,7 +30,7 @@ See [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/usages.md) fo
 ```
 
 #### Running etcdv3 backend
-`Etcdv3` backend launches the `CoreDNS` service by default and users no need to run additional `CoreDNS`.
+This backend will launches the CoreDNS service by default and users no need to run additional CoreDNS.
 
 ```
 ./scripts/start etcdv3
@@ -39,9 +39,9 @@ See [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/usages.md) fo
 > It's need to modify the configuration files in the `deploy/etcdv3/config` directory if not using the `default` domain.
 
 #### Migrate Datum From v0.4.x To v0.5.x
-`rdns-server` supports migration from the `v0.4.x` data to the new `v0.5.x` data store (etcdv3, route53). 
+Now supports migration from the `v0.4.x` data to the new `v0.5.x` data store (etcdv3, route53). 
 
-Please see here [here](https://github.com/Jason-ZW/rdns-migrate-tools#rdns-migrate-tools) for details.
+Please see [here](https://github.com/Jason-ZW/rdns-migrate-tools#rdns-migrate-tools) for details.
 
 ## Testing
 Now we only add integration tests, others will coming soon.
@@ -49,7 +49,7 @@ Now we only add integration tests, others will coming soon.
 Please see [here](https://github.com/Jason-ZW/rdns-server/tree/master/tests/integration) for details.
 
 ## Monitoring
-`rdns-server` provides prometheus metrics data at `/metrics` endpoints.
+Now provides prometheus metrics data at `/metrics` endpoints.
 
 ## API References
 Please see [here](https://github.com/Jason-ZW/rdns-server/blob/master/doc/apis.md) for details.
