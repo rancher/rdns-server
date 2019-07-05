@@ -15,7 +15,7 @@ import (
 
 const (
 	flagFrozen            = "FROZEN"
-	flagTTL               = "TTL"
+	flagLeaseTime         = "DATABASE_LEASE_TIME"
 	intervalSeconds int64 = 600
 )
 
@@ -85,9 +85,9 @@ func calculateFrozenTime() *time.Time {
 }
 
 func calculateTTLTime() *time.Time {
-	t, err := time.ParseDuration(os.Getenv(flagTTL))
+	t, err := time.ParseDuration(os.Getenv(flagLeaseTime))
 	if err != nil {
-		logrus.Fatalf(errEmptyEnv, flagTTL)
+		logrus.Fatalf(errEmptyEnv, flagLeaseTime)
 	}
 	duration, _ := time.ParseDuration(fmt.Sprintf("%dns", int(t.Nanoseconds())))
 	e := time.Now().Add(-duration)
