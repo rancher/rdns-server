@@ -13,7 +13,7 @@ Now `rdns-server` only supports `A/TXT` records, other record types will be adde
 |         | Etcdv3 | Store the records in the ETCD and query by CoreDNS |
 
 ## Latest Release
-* Latest - v0.5.1 - `rancher/rdns-server:v0.5.1-rancher-amd64`.
+* Latest - v0.5.2 - `rancher/rdns-server:v0.5.2-rancher-amd64`.
 
 ## Building
 

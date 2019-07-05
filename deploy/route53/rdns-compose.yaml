@@ -2,7 +2,7 @@ version: '2'
 
 services:
   rdns-server:
-    image: rancher/rdns-server:v0.5.1-rancher-amd64
+    image: rancher/rdns-server:v0.5.2-rancher-amd64
     network_mode: host
     restart: always
     environment:
