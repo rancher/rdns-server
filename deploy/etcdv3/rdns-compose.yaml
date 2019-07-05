@@ -9,7 +9,15 @@ services:
       - ./config:/etc/rdns/config
     environment:
       - ETCD_ENDPOINTS=${ETCD_ENDPOINTS}
+      - ETCD_PREFIX_PATH=${ETCD_PREFIX_PATH}
+      - ETCD_LEASE_TIME=${ETCD_LEASE_TIME}
+      - CORE_DNS_FILE=${CORE_DNS_FILE}
+      - CORE_DNS_PORT=${CORE_DNS_PORT}
+      - CORE_DNS_CPU=${CORE_DNS_CPU}
+      - CORE_DNS_DB_FILE=${CORE_DNS_DB_FILE}
+      - CORE_DNS_DB_ZONE=${CORE_DNS_DB_ZONE}
       - DOMAIN=${DOMAIN}
+      - TTL=${TTL}
     logging:
       driver: json-file
       options:

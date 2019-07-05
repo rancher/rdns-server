@@ -10,6 +10,8 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - DSN=${DSN}
+      - DATABASE_LEASE_TIME=${DATABASE_LEASE_TIME}
+      - TTL=${TTL}
     logging:
       driver: json-file
       options:
