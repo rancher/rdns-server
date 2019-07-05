@@ -3,12 +3,15 @@ package etcdv3
 import (
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/rancher/rdns-server/backend"
 	"github.com/rancher/rdns-server/backend/etcdv3"
 	"github.com/rancher/rdns-server/coredns"
 	"github.com/rancher/rdns-server/metric"
+	"github.com/rancher/rdns-server/model"
 	"github.com/rancher/rdns-server/service"
 
 	"github.com/pkg/errors"
@@ -25,6 +28,8 @@ var (
 		"CORE_DNS_FILE":    {"used to set coredns file.": "/etc/rdns/config/Corefile"},
 		"CORE_DNS_PORT":    {"used to set coredns port.": "53"},
 		"CORE_DNS_CPU":     {"used to set coredns cpu, a number (e.g. 3) or a percent (e.g. 50%).": "50%"},
+		"CORE_DNS_DB_FILE": {"used to set coredns file plugin db's file name (e.g. /etc/rdns/config/dbfile).": ""},
+		"CORE_DNS_DB_ZONE": {"used to set coredns file plugin db's zone (e.g. api.lb.rancher.cloud).": ""},
 		"TTL":              {"used to set coredns ttl.": "60"},
 	}
 )
@@ -61,6 +66,10 @@ func Action(c *cli.Context) error {
 		}
 	}()
 
+	if err := generateCoreFile(); err != nil {
+		return err
+	}
+
 	done := make(chan struct{})
 
 	go metric.StartMetricDaemon(done)
@@ -88,6 +97,9 @@ func setEnvironments(c *cli.Context) error {
 			return err
 		}
 		if os.Getenv(k) == "" {
+			if k == "CORE_DNS_DB_FILE" || k == "CORE_DNS_DB_ZONE" {
+				continue
+			}
 			return errors.Errorf("expected argument: %s", strings.ToLower(k))
 		}
 	}
@@ -103,4 +115,34 @@ func setBackend() (*etcdv3.Backend, error) {
 	backend.SetBackend(b)
 
 	return b, nil
+}
+
+func generateCoreFile() error {
+	fp := os.Getenv("CORE_DNS_FILE")
+	if fp == "" {
+		return errors.New("failed to get core dns file")
+	}
+	_, err := os.Stat(fp)
+	if err != nil {
+		// render CoreFile template
+		cf := &model.CoreFile{
+			CoreDNSDBFile:  os.Getenv("CORE_DNS_DB_FILE"),
+			CoreDNSDBZone:  os.Getenv("CORE_DNS_DB_ZONE"),
+			Domain:         os.Getenv("DOMAIN"),
+			EtcdPrefixPath: os.Getenv("ETCD_PREFIX_PATH"),
+			EtcdEndpoints:  strings.Join(strings.Split(os.Getenv("ETCD_ENDPOINTS"), ","), ""),
+			TTL:            os.Getenv("TTL"),
+			WildCardBound:  strconv.Itoa(len(strings.Split(strings.TrimRight(os.Getenv("DOMAIN"), "."), ".")) + 1),
+		}
+		p := template.Must(template.New("corefile-tmpl").Parse(model.CoreFileTmpl))
+		f, err := os.OpenFile(fp, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if err := p.Execute(f, cf); err != nil {
+			return err
+		}
+	}
+	return nil
 }

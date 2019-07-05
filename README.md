@@ -36,7 +36,8 @@ This backend will launches the CoreDNS service by default and users no need to r
 ./scripts/start etcdv3
 ```
 
-> It's need to modify the configuration files in the `deploy/etcdv3/config` directory if not using the `default` domain.
+> If user wants to enables serving zone data from an RFC 1035-style master file. 
+> Please put db file to `deploy/etcdv3/config` directory and add `CORE_DNS_DB_FILE` & `CORE_DNS_DB_ZONE` environments before running.
 
 #### Migrate Datum From v0.4.x To v0.5.x
 Now supports migration from the `v0.4.x` data to the new `v0.5.x` data store (etcdv3, route53). 
