@@ -36,7 +36,7 @@ type Backend struct {
 	Domain    string
 	Prefix    string
 	FrozenTTL time.Duration
-	TTL       time.Duration
+	LeaseTime time.Duration
 
 	C *clientv3.Client
 }
@@ -50,7 +50,7 @@ func NewBackend() (*Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	ttl, err := time.ParseDuration(os.Getenv("TTL"))
+	leaseTime, err := time.ParseDuration(os.Getenv("ETCD_LEASE_TIME"))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func NewBackend() (*Backend, error) {
 		Domain:    os.Getenv("DOMAIN"),
 		Prefix:    os.Getenv("ETCD_PREFIX_PATH"),
 		FrozenTTL: frozen,
-		TTL:       ttl,
+		LeaseTime: leaseTime,
 		C:         c,
 	}, nil
 }
@@ -812,7 +812,7 @@ func (b *Backend) setToken(opts *model.DomainOptions, exist bool) (int64, int64,
 	} else {
 		token = util.RandStringWithAll(tokenLength)
 
-		id, ttl, err := b.grantLease(int64(b.TTL.Seconds()))
+		id, ttl, err := b.grantLease(int64(b.LeaseTime.Seconds()))
 		if err != nil {
 			return 0, -1, err
 		}

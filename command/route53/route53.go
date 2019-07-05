@@ -24,8 +24,9 @@ var (
 		"AWS_ACCESS_KEY_ID":     {"used to set aws access key ID.": ""},
 		"AWS_SECRET_ACCESS_KEY": {"used to set aws secret access key.": ""},
 		"DATABASE":              {"used to set database.": "mysql"},
+		"DATABASE_LEASE_TIME":   {"used to set database lease time.": "240h"},
 		"DSN":                   {"used to set database dsn.": ""},
-		"TTL":                   {"used to set record ttl.": "240h"},
+		"TTL":                   {"used to set route53 ttl.": "10"},
 	}
 )
 

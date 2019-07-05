@@ -21,10 +21,11 @@ var (
 		"DOMAIN":           {"used to set etcd root domain.": "lb.rancher.cloud"},
 		"ETCD_ENDPOINTS":   {"used to set etcd endpoints.": "http://127.0.0.1:2379"},
 		"ETCD_PREFIX_PATH": {"used to set etcd prefix path.": "/rdnsv3"},
+		"ETCD_LEASE_TIME":  {"used to set etcd lease time.": "240h"},
 		"CORE_DNS_FILE":    {"used to set coredns file.": "/etc/rdns/config/Corefile"},
 		"CORE_DNS_PORT":    {"used to set coredns port.": "53"},
 		"CORE_DNS_CPU":     {"used to set coredns cpu, a number (e.g. 3) or a percent (e.g. 50%).": "50%"},
-		"TTL":              {"used to set record ttl.": "240h"},
+		"TTL":              {"used to set coredns ttl.": "60"},
 	}
 )
 
