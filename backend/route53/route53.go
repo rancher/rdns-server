@@ -48,6 +48,7 @@ func NewBackend() (*Backend, error) {
 
 	svc := route53.New(s, &aws.Config{
 		Credentials: c,
+		MaxRetries:  aws.Int(3),
 	})
 
 	z, err := svc.GetHostedZone(&route53.GetHostedZoneInput{
