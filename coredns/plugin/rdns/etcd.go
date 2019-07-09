@@ -216,7 +216,7 @@ func (e *ETCD) filterKvs(kvs []*mvccpb.KeyValue, segments []string, qType uint16
 		for _, v := range kvs {
 			ss := strings.Split(string(v.Key), "/")
 			s := segments[len(segments)-1:][0]
-			p := `^\\d{1,3}_\\d{1,3}_\\d{1,3}_\\d{1,3}$`
+			p := `^\d{1,3}_\d{1,3}_\d{1,3}_\d{1,3}$`
 			m, _ := regexp.MatchString(p, s)
 			if s != "*" && m && e.WildcardBound == (int8(len(segments))-3) {
 				continue
