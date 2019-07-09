@@ -86,7 +86,7 @@ func (e *ETCD) Records(ctx context.Context, state request.Request, exact bool) (
 	if e.WildcardBound > 0 && qType != dns.TypeTXT {
 		temp := dns.SplitDomainName(name)
 		if int8(len(temp)) > e.WildcardBound && !e.pathExist(ctx, temp) {
-			start := int8(len(temp)) - e.WildcardBound
+			start := int8(len(temp)) - e.WildcardBound - 1
 			name = fmt.Sprintf("*.%s", strings.Join(temp[start:], "."))
 		}
 	}
