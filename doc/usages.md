@@ -29,7 +29,7 @@ COMMANDS:
         --core_dns_cpu value            used to set coredns cpu, a number (e.g. 3) or a percent (e.g. 50%). (default: "50%") [$CORE_DNS_CPU]
         --core_dns_db_file value        used to set coredns file plugin db's file (e.g. /etc/rdns/config/dbfile). [$CORE_DNS_DB_FILE_NAME]
         --core_dns_db_zone value        used to set coredns file plugin db's zone (e.g. api.lb.rancher.cloud). [$CORE_DNS_DB_ZONE]
-        --ttl value                     used to set cordns ttl. (default: "60") [$TTL]
+        --ttl value                     used to set coredns ttl. (default: "60") [$TTL]
         --domain value                  used to set etcd root domain. (default: "lb.rancher.cloud") [$DOMAIN]
         --etcd_endpoints value          used to set etcd endpoints. (default: "http://127.0.0.1:2379") [$ETCD_ENDPOINTS]
         --etcd_prefix_path value        used to set etcd prefix path. (default: "/rdnsv3") [$ETCD_PREFIX_PATH]
