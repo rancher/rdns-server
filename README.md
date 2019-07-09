@@ -7,10 +7,8 @@ rdns-server
 The `rdns-server` implements the API interface of Dynamic DNS, its goal is to use a variety of DNS servers such as Route53, CoreDNS etc.
 Now `rdns-server` only supports `A/TXT` records, other record types will be added as soon as possible.
 
-| Default | Backend | Description |
-| ------- | ------- | ----------- |
-|    *    | Route53 | Store the records in the AWS Route53 service and copy them to the database |
-|         | Etcdv3 | Store the records in the ETCD and query by CoreDNS |
+* Default - Route53 - Store the records in the AWS Route53 service and copy them to the database
+* Alternative - Etcdv3 - Store the records in the ETCD and query by CoreDNS
 
 ## Latest Release
 * Latest - v0.5.2 - `rancher/rdns-server:v0.5.2-rancher-amd64`.
