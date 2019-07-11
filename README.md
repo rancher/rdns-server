@@ -31,6 +31,9 @@ See [here](https://github.com/rancher/rdns-server/blob/master/doc/usages.md) for
 This backend will launches the CoreDNS service by default and users no need to run additional CoreDNS.
 
 ```
+docker-compose -f deploy/etcdv3/etcd-compose.yaml up -d
+export ETCD_ENDPOINTS="http://localhost:2379"
+export DOMAIN="lb.rancher.cloud"
 ./scripts/start etcdv3
 ```
 
