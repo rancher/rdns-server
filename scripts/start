@@ -76,5 +76,6 @@ if [ $1 == "etcdv3" ]; then
 	if [ -z $TTL ]; then
 		export TTL="60"
 	fi
+	rm -rf deploy/etcdv3/config/Corefile
 	docker-compose -f deploy/etcdv3/rdns-compose.yaml up -d
 fi
