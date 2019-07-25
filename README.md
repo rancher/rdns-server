@@ -24,6 +24,11 @@ See [here](https://github.com/rancher/rdns-server/blob/master/doc/usages.md) for
 
 #### Running route53 backend
 ```
+export MYSQL_ROOT_PASSWORD="xxx"
+export AWS_HOSTED_ZONE_ID="xxx"
+export AWS_ACCESS_KEY_ID="xxx"
+export AWS_SECRET_ACCESS_KEY="xxx"
+export DSN="root:${MYSQL_ROOT_PASSWORD}@tcp(127.0.0.1:3306)/rdns?parseTime=true"
 ./scripts/start route53
 ```
 

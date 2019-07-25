@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	DataBaseName = "mysql"
+	DriverName = "mysql"
 
 	maxOpenConnections = 2000
 	maxIdleConnections = 1000
@@ -22,7 +22,7 @@ type Database struct {
 }
 
 func NewDatabase(dsn string) (*Database, error) {
-	db, err := sql.Open(DataBaseName, dsn)
+	db, err := sql.Open(DriverName, dsn)
 	if err != nil {
 		return &Database{}, err
 	}

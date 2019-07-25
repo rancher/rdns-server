@@ -23,7 +23,7 @@ var (
 		"AWS_HOSTED_ZONE_ID":    {"used to set aws hosted zone ID.": ""},
 		"AWS_ACCESS_KEY_ID":     {"used to set aws access key ID.": ""},
 		"AWS_SECRET_ACCESS_KEY": {"used to set aws secret access key.": ""},
-		"DATABASE":              {"used to set database.": "mysql"},
+		"DATABASE":              {"used to set database driver.": "mysql"},
 		"DATABASE_LEASE_TIME":   {"used to set database lease time.": "240h"},
 		"DSN":                   {"used to set database dsn.": ""},
 		"TTL":                   {"used to set route53 ttl.": "10"},
@@ -97,7 +97,7 @@ func setEnvironments(c *cli.Context) error {
 
 func setDatabase(c *cli.Context) (d *mysql.Database, err error) {
 	switch c.String("database") {
-	case mysql.DataBaseName:
+	case mysql.DriverName:
 		d, err = mysql.NewDatabase(c.String("dsn"))
 		if err != nil {
 			return nil, err
