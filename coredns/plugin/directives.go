@@ -8,7 +8,6 @@ package plugin
 // (after) them during a request, but they must not
 // care what plugin above them are doing.
 var Directives = []string{
-	"rdns",
 	"metadata",
 	"cancel",
 	"tls",
@@ -41,6 +40,7 @@ var Directives = []string{
 	"auto",
 	"secondary",
 	"etcd",
+	"rdns",
 	"loop",
 	"forward",
 	"grpc",
