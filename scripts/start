@@ -34,7 +34,7 @@ if [ $1 == "route53" ]; then
 	if [ -z $DATABASE_LEASE_TIME ]; then
 		export DATABASE_LEASE_TIME="240h"
 	fi
-	if [ -z TTL]; then
+	if [ -z $TTL ]; then
 		export TTL="10"
 	fi
 	docker-compose -f deploy/route53/mysql-compose.yaml up -d
