@@ -29,6 +29,7 @@ export AWS_HOSTED_ZONE_ID="xxx"
 export AWS_ACCESS_KEY_ID="xxx"
 export AWS_SECRET_ACCESS_KEY="xxx"
 export DSN="root:${MYSQL_ROOT_PASSWORD}@tcp(127.0.0.1:3306)/rdns?parseTime=true"
+export TTL="10"
 ./scripts/start route53
 ```
 
