@@ -33,6 +33,10 @@ type Database interface {
 	UpdateSubA(*model.SubRecordA) (int64, error)
 	QuerySubA(name string) (*model.SubRecordA, error)
 	DeleteSubA(name string) error
+	InsertCNAME(*model.RecordCNAME) (int64, error)
+	UpdateCNAME(*model.RecordCNAME) (int64, error)
+	QueryCNAME(name string) (*model.RecordCNAME, error)
+	DeleteCNAME(name string) error
 	InsertTXT(*model.RecordTXT) (int64, error)
 	UpdateTXT(*model.RecordTXT) (int64, error)
 	QueryTXT(name string) (*model.RecordTXT, error)

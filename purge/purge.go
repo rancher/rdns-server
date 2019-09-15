@@ -55,6 +55,15 @@ func (p *purger) purge() {
 			}
 		}
 
+		// delete route53 CNAME records
+		cname, err := backend.GetBackend().GetCNAME(opts)
+		if err == nil && cname.Fqdn != "" {
+			if err := backend.GetBackend().DeleteCNAME(opts); err != nil {
+				logrus.Error(err)
+				continue
+			}
+		}
+
 		// delete route53 TXT records
 		ts, err := database.GetDatabase().QueryExpiredTXTs(token.ID)
 		for _, t := range ts {

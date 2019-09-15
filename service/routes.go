@@ -55,6 +55,30 @@ var routes = Routes{
 		renewDomain,
 	},
 	Route{
+		"createDomainCNAME",
+		"POST",
+		"/v1/domain/cname",
+		createDomainCNAME,
+	},
+	Route{
+		"getDomainCNAME",
+		"GET",
+		"/v1/domain/{fqdn}/cname",
+		getDomainCNAME,
+	},
+	Route{
+		"updateDomainCNAME",
+		"PUT",
+		"/v1/domain/{fqdn}/cname",
+		updateDomainCNAME,
+	},
+	Route{
+		"deleteDomainCNAME",
+		"DELETE",
+		"/v1/domain/{fqdn}/cname",
+		deleteDomainCNAME,
+	},
+	Route{
 		"createDomainText",
 		"POST",
 		"/v1/domain/{fqdn}/txt",

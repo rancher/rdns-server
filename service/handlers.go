@@ -179,6 +179,92 @@ func deleteDomain(w http.ResponseWriter, r *http.Request) {
 	returnSuccessNoData(w)
 }
 
+func createDomainCNAME(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+
+	opts, err := model.ParseDomainOptions(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
+
+	b := backend.GetBackend()
+	d, err := b.SetCNAME(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+	returnSuccessWithToken(w, d, "")
+}
+
+func getDomainCNAME(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+	msg := ""
+
+	opts := &model.DomainOptions{Fqdn: fqdn}
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
+
+	b := backend.GetBackend()
+	d, err := b.GetCNAME(opts)
+	if err != nil {
+		msg = err.Error()
+	}
+	returnSuccess(w, d, msg)
+}
+
+func updateDomainCNAME(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+
+	opts, err := model.ParseDomainOptions(r)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
+	opts.Fqdn = fqdn
+
+	b := backend.GetBackend()
+	d, err := b.UpdateCNAME(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccess(w, d, "")
+}
+
+func deleteDomainCNAME(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+	vars := mux.Vars(r)
+	fqdn := vars["fqdn"]
+
+	opts := &model.DomainOptions{Fqdn: fqdn}
+	if len(vals["normal"]) > 0 && vals["normal"][0] == "true" {
+		opts.Normal = true
+	}
+
+	b := backend.GetBackend()
+	err := b.DeleteCNAME(opts)
+	if err != nil {
+		returnHTTPError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	returnSuccessNoData(w)
+}
+
 func createDomainText(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fqdn := vars["fqdn"]

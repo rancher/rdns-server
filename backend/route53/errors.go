@@ -16,6 +16,7 @@ const (
 	errQueryAFromDatabase        = "failed to query %s's A record from database"
 	errQueryTokenFromDatabase    = "failed to query %s's token record from database"
 	errQueryTXTFromDatabase      = "failed to query %s's TXT record from database"
+	errQueryCNAMEFromDatabase    = "failed to query %s's CNAME record from database"
 	errRenewFrozenFromDatabase   = "failed to renew %s's frozen record from database"
 	errRenewTokenFromDatabase    = "failed to renew %s's token record from database"
 	errUpsertRoute53Record       = "failed to upsert route53 %s record: %s"

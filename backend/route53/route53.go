@@ -24,6 +24,7 @@ const (
 	Name             = "route53"
 	typeA            = "A"
 	typeTXT          = "TXT"
+	typeCNAME        = "CNAME"
 	maxSlugHashTimes = 100
 	slugLength       = 6
 	tokenLength      = 32
@@ -99,7 +100,7 @@ func (b *Backend) Get(opts *model.DomainOptions) (d model.Domain, err error) {
 		return d, err
 	}
 
-	v, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
+	v, a, s, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 	if !v {
 		emptyName := fmt.Sprintf("%s.%s", "empty", opts.Fqdn)
 
@@ -248,7 +249,7 @@ func (b *Backend) Update(opts *model.DomainOptions) (d model.Domain, err error) 
 		return d, err
 	}
 
-	_, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
+	_, a, s, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 
 	// convert A & sub domain records to map
 	as, cs := b.convertARecords(a, s)
@@ -365,7 +366,7 @@ func (b *Backend) Delete(opts *model.DomainOptions) error {
 		return err
 	}
 
-	_, a, s, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
+	_, a, s, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeA)
 
 	// delete wildcard A records
 	for _, rr := range a {
@@ -410,7 +411,164 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 		return d, errors.Wrapf(err, errRenewFrozenFromDatabase, opts.Fqdn)
 	}
 
-	return b.Get(opts)
+	return model.Domain{
+		Fqdn:       opts.Fqdn,
+		Expiration: convertExpiration(time.Unix(0, t.CreatedOn), int(b.LeaseTime.Nanoseconds())),
+	}, nil
+}
+
+func (b *Backend) SetCNAME(opts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("set CNAME record for domain options: %s", opts.String())
+
+	for i := 0; i < maxSlugHashTimes; i++ {
+		fqdn := fmt.Sprintf("%s.%s", generateSlug(), b.Zone)
+
+		// check whether this slug name can be used or not, if not found the slug name is valid, others not valid
+		r, err := database.GetDatabase().QueryFrozen(strings.Split(fqdn, ".")[0])
+		if err != nil && err != sql.ErrNoRows {
+			return d, err
+		}
+		if r != "" {
+			logrus.Debugf(errNotValidGenerateName, strings.Split(fqdn, ".")[0])
+			continue
+		}
+
+		o := &model.DomainOptions{
+			Fqdn: fqdn,
+		}
+
+		d, err := b.GetCNAME(o)
+		if err != nil || d.Fqdn == "" {
+			opts.Fqdn = fqdn
+			break
+		}
+	}
+
+	if opts.Fqdn == "" {
+		return d, errors.Errorf(errGenerateName, opts.String())
+	}
+
+	// save the slug name to the database in case of the name will be re-generate
+	if err := database.GetDatabase().InsertFrozen(strings.Split(opts.Fqdn, ".")[0]); err != nil {
+		return d, errors.Wrapf(err, errInsertFrozenToDatabase, strings.Split(opts.Fqdn, ".")[0])
+	}
+
+	// save token to the database
+	tID, err := b.SetToken(opts, false)
+	if err != nil {
+		return d, errors.Wrapf(err, errInsertTokenToDatabase, opts.Fqdn)
+	}
+
+	rrs := &route53.ResourceRecordSet{
+		Type: aws.String(typeCNAME),
+		Name: aws.String(opts.Fqdn),
+		ResourceRecords: []*route53.ResourceRecord{
+			{
+				Value: aws.String(opts.CNAME),
+			},
+		},
+		TTL: aws.Int64(int64(b.TTL)),
+	}
+
+	// set CNAME
+	if _, err := b.setRecord(rrs, opts, typeCNAME, tID, 0, false); err != nil {
+		return d, err
+	}
+
+	return b.GetCNAME(opts)
+}
+
+func (b *Backend) GetCNAME(opts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("get CNAME record for domain options: %s", opts.String())
+
+	records, err := b.getRecords(opts, typeCNAME)
+	if err != nil {
+		return d, err
+	}
+
+	valid, _, _, _, c := b.filterRecords(records.ResourceRecordSets, opts, typeCNAME)
+	if !valid || len(c) < 1 {
+		return d, errors.Errorf(errFilterRecords, typeCNAME, opts.Fqdn)
+	}
+
+	// get token from database
+	token, err := database.GetDatabase().QueryToken(b.findSlugWithZone(opts.Fqdn))
+	if err != nil {
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
+	}
+
+	d.Fqdn = opts.Fqdn
+	d.CNAME = aws.StringValue(c[0].ResourceRecords[0].Value)
+	d.Expiration = convertExpiration(time.Unix(0, token.CreatedOn), int(b.LeaseTime.Nanoseconds()))
+
+	return d, nil
+}
+
+func (b *Backend) UpdateCNAME(opts *model.DomainOptions) (d model.Domain, err error) {
+	logrus.Debugf("update CNAME record for domain options: %s", opts.String())
+
+	records, err := b.getRecords(opts, typeCNAME)
+	if err != nil {
+		return d, err
+	}
+
+	if valid, _, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeCNAME); !valid {
+		return d, errors.Errorf(errFilterRecords, typeCNAME, opts.Fqdn)
+	}
+
+	r, err := database.GetDatabase().QueryCNAME(opts.Fqdn)
+	if err != nil {
+		return d, errors.Wrapf(err, errQueryCNAMEFromDatabase, opts.Fqdn)
+	}
+
+	rrs := &route53.ResourceRecordSet{
+		Name: aws.String(opts.Fqdn),
+		Type: aws.String(typeCNAME),
+		ResourceRecords: []*route53.ResourceRecord{
+			{
+				Value: aws.String(opts.CNAME),
+			},
+		},
+		TTL: aws.Int64(int64(b.TTL)),
+	}
+
+	if _, err := b.setRecord(rrs, opts, typeCNAME, r.TID, 0, false); err != nil {
+		return d, err
+	}
+
+	// get token from database
+	token, err := database.GetDatabase().QueryToken(b.findSlugWithZone(opts.Fqdn))
+	if err != nil {
+		return d, errors.Wrapf(err, errQueryTokenFromDatabase, opts.Fqdn)
+	}
+
+	d.Fqdn = opts.Fqdn
+	d.CNAME = opts.CNAME
+	d.Expiration = convertExpiration(time.Unix(0, token.CreatedOn), int(b.LeaseTime.Nanoseconds()))
+
+	return d, nil
+}
+
+func (b *Backend) DeleteCNAME(opts *model.DomainOptions) error {
+	logrus.Debugf("delete CNAME record for domain options: %s", opts.String())
+
+	records, err := b.getRecords(opts, typeCNAME)
+	if err != nil {
+		return err
+	}
+
+	v, _, _, _, c := b.filterRecords(records.ResourceRecordSets, opts, typeCNAME)
+	if !v {
+		return errors.Errorf(errFilterRecords, typeCNAME, opts.Fqdn)
+	}
+
+	for _, rr := range c {
+		if err := b.deleteRecord(rr, opts, typeCNAME, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error) {
@@ -421,7 +579,7 @@ func (b *Backend) GetText(opts *model.DomainOptions) (d model.Domain, err error)
 		return d, err
 	}
 
-	valid, _, _, t := b.filterRecords(records.ResourceRecordSets, opts, typeTXT)
+	valid, _, _, t, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT)
 	if !valid || len(t) < 1 {
 		return d, errors.Errorf(errFilterRecords, typeTXT, opts.Fqdn)
 	}
@@ -447,7 +605,7 @@ func (b *Backend) SetText(opts *model.DomainOptions) (d model.Domain, err error)
 		return d, err
 	}
 
-	if valid, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT); valid {
+	if valid, _, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT); valid {
 		return d, errors.Errorf(errExistRecord, typeTXT, opts.Fqdn)
 	}
 
@@ -482,7 +640,7 @@ func (b *Backend) UpdateText(opts *model.DomainOptions) (d model.Domain, err err
 		return d, err
 	}
 
-	if valid, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT); !valid {
+	if valid, _, _, _, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT); !valid {
 		return d, errors.Errorf(errFilterRecords, typeTXT, opts.Fqdn)
 	}
 
@@ -528,7 +686,7 @@ func (b *Backend) DeleteText(opts *model.DomainOptions) error {
 		return err
 	}
 
-	v, _, _, t := b.filterRecords(records.ResourceRecordSets, opts, typeTXT)
+	v, _, _, t, _ := b.filterRecords(records.ResourceRecordSets, opts, typeTXT)
 	if !v {
 		return errors.Errorf(errFilterRecords, typeTXT, opts.Fqdn)
 	}
@@ -711,6 +869,22 @@ func (b *Backend) setRecordToDatabase(rrs *route53.ResourceRecordSet, rType stri
 		return database.GetDatabase().InsertTXT(dr)
 	}
 
+	if rType == typeCNAME {
+		dr := &model.RecordCNAME{
+			Type:      3,
+			Fqdn:      aws.StringValue(rrs.Name),
+			Content:   strings.Join(content, ","),
+			TID:       tID,
+			CreatedOn: time.Now().Unix(),
+		}
+
+		result, _ := database.GetDatabase().QueryCNAME(aws.StringValue(rrs.Name))
+		if result != nil && result.Fqdn != "" {
+			return database.GetDatabase().UpdateCNAME(dr)
+		}
+		return database.GetDatabase().InsertCNAME(dr)
+	}
+
 	return 0, nil
 }
 
@@ -727,6 +901,10 @@ func (b *Backend) deleteRecordFromDatabase(rrs *route53.ResourceRecordSet, rType
 
 	if rType == typeTXT {
 		return database.GetDatabase().DeleteTXT(name)
+	}
+
+	if rType == typeCNAME {
+		return database.GetDatabase().DeleteCNAME(name)
 	}
 
 	return nil
@@ -750,7 +928,7 @@ func (b *Backend) getRecords(opts *model.DomainOptions, rType string) (*route53.
 
 // Used to set record:
 //   parameters:
-//     rType: record's type(0: TXT, 1: A, 2: SUB)
+//     rType: record's type(0: TXT, 1: A, 2: SUB, 3:CNAME)
 //     tID: reference token ID
 //     pID: reference parent ID
 //     sub: whether is sub domain or not
@@ -824,11 +1002,12 @@ func (b *Backend) deleteRecord(rrs *route53.ResourceRecordSet, opts *model.Domai
 //       1. wildcard record is valid
 //       2. A record which equal to the opts.Fqdn is valid
 //       3. sub-domain A record which parent is opts.Fqdn is valid
-func (b *Backend) filterRecords(rrs []*route53.ResourceRecordSet, opts *model.DomainOptions, rType string) (v bool, a, s, t []*route53.ResourceRecordSet) {
+func (b *Backend) filterRecords(rrs []*route53.ResourceRecordSet, opts *model.DomainOptions, rType string) (v bool, a, s, t, c []*route53.ResourceRecordSet) {
 	v = false
 	a = make([]*route53.ResourceRecordSet, 0)
 	s = make([]*route53.ResourceRecordSet, 0)
 	t = make([]*route53.ResourceRecordSet, 0)
+	c = make([]*route53.ResourceRecordSet, 0)
 
 	switch rType {
 	case typeA:
@@ -843,6 +1022,16 @@ func (b *Backend) filterRecords(rrs []*route53.ResourceRecordSet, opts *model.Do
 			}
 			if (len(nss)-len(oss)) == 1 && strings.Contains(name, opts.Fqdn) && aws.StringValue(rs.Type) == rType && !strings.Contains(name, "\\052") {
 				s = append(s, rs)
+				continue
+			}
+		}
+		return
+	case typeCNAME:
+		for _, rs := range rrs {
+			name := strings.TrimRight(aws.StringValue(rs.Name), ".")
+			if (name == opts.Fqdn || name == fmt.Sprintf("\\052.%s", opts.Fqdn)) && aws.StringValue(rs.Type) == rType {
+				v = true
+				c = append(c, rs)
 				continue
 			}
 		}
