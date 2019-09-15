@@ -8,7 +8,7 @@ USAGE:
    rdns-server [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.5.5
+   v0.5.6
 
 AUTHOR:
    Rancher Labs, Inc.
