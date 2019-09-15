@@ -340,6 +340,22 @@ func (b *Backend) Renew(opts *model.DomainOptions) (d model.Domain, err error) {
 	return d, nil
 }
 
+func (b *Backend) SetCNAME(opts *model.DomainOptions) (model.Domain, error) {
+	return model.Domain{}, nil
+}
+
+func (b *Backend) GetCNAME(opts *model.DomainOptions) (model.Domain, error) {
+	return model.Domain{}, nil
+}
+
+func (b *Backend) UpdateCNAME(opts *model.DomainOptions) (model.Domain, error) {
+	return model.Domain{}, nil
+}
+
+func (b *Backend) DeleteCNAME(opts *model.DomainOptions) error {
+	return nil
+}
+
 func (b *Backend) SetText(opts *model.DomainOptions) (d model.Domain, err error) {
 	logrus.Debugf("set %s record for domain options: %s", typeTXT, opts.String())
 

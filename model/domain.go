@@ -12,10 +12,14 @@ type Domain struct {
 	Hosts      []string            `json:"hosts,omitempty"`
 	SubDomain  map[string][]string `json:"subdomain,omitempty"`
 	Text       string              `json:"text,omitempty"`
+	CNAME      string              `json:"cname,omitempty"`
 	Expiration *time.Time          `json:"expiration,omitempty"`
 }
 
 func (d *Domain) String() string {
+	if d.CNAME != "" {
+		return fmt.Sprintf("{Fqdn: %s, CNAME: %s, Expiration: %s}", d.Fqdn, d.CNAME, d.Expiration.Format(time.RFC3339Nano))
+	}
 	if d.Text != "" {
 		return fmt.Sprintf("{Fqdn: %s, Text: %s, Expiration: %s}", d.Fqdn, d.Text, d.Expiration.Format(time.RFC3339Nano))
 	}
@@ -30,10 +34,14 @@ type DomainOptions struct {
 	Hosts     []string            `json:"hosts"`
 	SubDomain map[string][]string `json:"subdomain"`
 	Text      string              `json:"text"`
+	CNAME     string              `json:"cname"`
 	Normal    bool                `json:"normal"`
 }
 
 func (d *DomainOptions) String() string {
+	if d.CNAME != "" {
+		return fmt.Sprintf("{Fqdn: %s, CNAME: %s}", d.Fqdn, d.CNAME)
+	}
 	if d.Text != "" {
 		return fmt.Sprintf("{Fqdn: %s, Text: %s}", d.Fqdn, d.Text)
 	}

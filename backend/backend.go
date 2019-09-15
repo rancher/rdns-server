@@ -18,6 +18,10 @@ type Backend interface {
 	GetText(opts *model.DomainOptions) (model.Domain, error)
 	UpdateText(opts *model.DomainOptions) (model.Domain, error)
 	DeleteText(opts *model.DomainOptions) error
+	SetCNAME(opts *model.DomainOptions) (model.Domain, error)
+	GetCNAME(opts *model.DomainOptions) (model.Domain, error)
+	UpdateCNAME(opts *model.DomainOptions) (model.Domain, error)
+	DeleteCNAME(opts *model.DomainOptions) error
 	GetToken(fqdn string) (string, error)
 	GetTokenCount() (int64, error)
 	GetZone() string

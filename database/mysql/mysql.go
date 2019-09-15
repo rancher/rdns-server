@@ -370,6 +370,67 @@ func (d *Database) DeleteSubA(name string) error {
 	return err
 }
 
+func (d *Database) InsertCNAME(c *model.RecordCNAME) (int64, error) {
+	st, err := d.Db.Prepare("INSERT INTO record_cname (fqdn, type, content, created_on, tid) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return 0, err
+	}
+	defer st.Close()
+
+	r, err := st.Exec(c.Fqdn, c.Type, c.Content, c.CreatedOn, c.TID)
+	if err != nil {
+		return 0, err
+	}
+	return r.LastInsertId()
+}
+
+func (d *Database) UpdateCNAME(c *model.RecordCNAME) (int64, error) {
+	st, err := d.Db.Prepare("UPDATE record_cname SET type = ?, content = ?, created_on = ?, tid = ? WHERE fqdn = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer st.Close()
+
+	r, err := st.Exec(c.Type, c.Content, c.CreatedOn, c.TID, c.Fqdn)
+	if err != nil {
+		return 0, err
+	}
+	return r.LastInsertId()
+}
+
+func (d *Database) QueryCNAME(name string) (*model.RecordCNAME, error) {
+	r := &model.RecordCNAME{}
+	st, err := d.Db.Prepare("SELECT * FROM record_cname WHERE fqdn = ?")
+	if err != nil {
+		return r, err
+	}
+	defer st.Close()
+
+	rows, err := st.Query(name)
+	if err != nil {
+		return r, err
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(&r.ID, &r.Fqdn, &r.Type, &r.Content, &r.CreatedOn, &r.UpdatedOn, &r.TID); err != nil {
+			return r, err
+		}
+	}
+
+	return r, nil
+}
+
+func (d *Database) DeleteCNAME(name string) error {
+	st, err := d.Db.Prepare("DELETE FROM record_cname WHERE fqdn = ?")
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	_, err = st.Exec(name)
+	return err
+}
+
 func (d *Database) InsertTXT(a *model.RecordTXT) (int64, error) {
 	st, err := d.Db.Prepare("INSERT INTO record_txt (fqdn, type, content, created_on, tid) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
