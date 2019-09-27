@@ -24,6 +24,7 @@ const (
 	contentType     = "Content-Type"
 	jsonContentType = "application/json"
 	secretKey       = "rdns-token"
+	cnamePath = "/cname"
 )
 
 func jsonBody(payload interface{}) (io.Reader, error) {
@@ -91,17 +92,17 @@ func (c *Client) do(req *http.Request) (model.Response, error) {
 	return data, nil
 }
 
-func (c *Client) ApplyDomain(hosts []string, subDomain map[string][]string) (bool, string, error) {
+func (c *Client) ApplyDomain(hosts []string, subDomain map[string][]string, cname bool) (bool, string, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	d, err := c.GetDomain()
+	d, err := c.GetDomain(cname)
 	if err != nil {
 		return false, "", err
 	}
 
 	if d == nil {
 		logrus.Debugf("fqdn configuration does not exist, need to create a new one")
-		fqdn, err := c.CreateDomain(hosts)
+		fqdn, err := c.CreateDomain(hosts, cname)
 		return true, fqdn, err
 	}
 
@@ -109,7 +110,7 @@ func (c *Client) ApplyDomain(hosts []string, subDomain map[string][]string) (boo
 	sort.Strings(hosts)
 	if !reflect.DeepEqual(d.Hosts, hosts) || !reflect.DeepEqual(d.SubDomain, subDomain) {
 		logrus.Debugf("fqdn %s or subdomains %+v has some changes, need to update", d.Fqdn, d.SubDomain)
-		fqdn, err := c.UpdateDomain(hosts, subDomain)
+		fqdn, err := c.UpdateDomain(hosts, subDomain, cname)
 		return false, fqdn, err
 	}
 	logrus.Debugf("fqdn %s has no changes, no need to update", d.Fqdn)
@@ -118,7 +119,7 @@ func (c *Client) ApplyDomain(hosts []string, subDomain map[string][]string) (boo
 	return false, fqdn, nil
 }
 
-func (c *Client) GetDomain() (d *model.Domain, err error) {
+func (c *Client) GetDomain(cname bool) (d *model.Domain, err error) {
 	fqdn, token, err := c.getSecret()
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -127,7 +128,11 @@ func (c *Client) GetDomain() (d *model.Domain, err error) {
 		return nil, errors.Wrap(err, "GetDomain: failed to get stored secret")
 	}
 
-	url := buildURL(c.base, "/"+fqdn, "")
+	path := ""
+	if cname {
+		path = cnamePath
+	}
+	url := buildURL(c.base, "/"+fqdn, path)
 	req, err := c.request(http.MethodGet, url, nil)
 	if err != nil {
 		return d, errors.Wrap(err, "GetDomain: failed to build a request")
@@ -147,11 +152,19 @@ func (c *Client) GetDomain() (d *model.Domain, err error) {
 	return &o.Data, nil
 }
 
-func (c *Client) CreateDomain(hosts []string) (string, error) {
+func (c *Client) CreateDomain(hosts []string, cname bool) (string, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	url := buildURL(c.base, "", "")
-	body, err := jsonBody(&model.DomainOptions{Hosts: hosts})
+	path := ""
+	options := &model.DomainOptions{}
+	if cname {
+		options.CNAME = hosts[0]
+		path = cnamePath
+	} else {
+		options.Hosts = hosts
+	}
+	url := buildURL(c.base, "", path)
+	body, err := jsonBody(options)
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +186,7 @@ func (c *Client) CreateDomain(hosts []string) (string, error) {
 	return resp.Data.Fqdn, err
 }
 
-func (c *Client) UpdateDomain(hosts []string, subDomain map[string][]string) (string, error) {
+func (c *Client) UpdateDomain(hosts []string, subDomain map[string][]string, cname bool) (string, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -182,8 +195,19 @@ func (c *Client) UpdateDomain(hosts []string, subDomain map[string][]string) (st
 		return "", errors.Wrap(err, "UpdateDomain: failed to get stored secret")
 	}
 
-	url := buildURL(c.base, "/"+fqdn, "")
-	body, err := jsonBody(&model.DomainOptions{Hosts: hosts, SubDomain: subDomain})
+	path := ""
+	options := &model.DomainOptions{
+		SubDomain: subDomain,
+	}
+	if cname {
+		options.CNAME = hosts[0]
+		path = cnamePath
+	} else {
+		options.Hosts = hosts
+	}
+	
+	url := buildURL(c.base, "/"+fqdn, path)
+	body, err := jsonBody(options)
 	if err != nil {
 		return "", err
 	}

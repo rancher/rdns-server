@@ -6,7 +6,6 @@ import (
 
 	"github.com/rancher/rdns-server/command/etcdv3"
 	"github.com/rancher/rdns-server/command/route53"
-
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
