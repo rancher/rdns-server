@@ -24,7 +24,7 @@ const (
 	contentType     = "Content-Type"
 	jsonContentType = "application/json"
 	secretKey       = "rdns-token"
-	cnamePath = "/cname"
+	cnamePath       = "/cname"
 )
 
 func jsonBody(payload interface{}) (io.Reader, error) {
@@ -205,7 +205,7 @@ func (c *Client) UpdateDomain(hosts []string, subDomain map[string][]string, cna
 	} else {
 		options.Hosts = hosts
 	}
-	
+
 	url := buildURL(c.base, "/"+fqdn, path)
 	body, err := jsonBody(options)
 	if err != nil {
