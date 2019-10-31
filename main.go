@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	DNSVersion = "v0.5.6"
+	DNSVersion = "v0.5.7"
 	DNSDate    string
 )
 
