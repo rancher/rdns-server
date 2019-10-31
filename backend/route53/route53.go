@@ -475,6 +475,12 @@ func (b *Backend) SetCNAME(opts *model.DomainOptions) (d model.Domain, err error
 		return d, err
 	}
 
+	// set wildcard CNAME
+	rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
+	if _, err := b.setRecord(rrs, opts, typeCNAME, tID, 0, false); err != nil {
+		return d, err
+	}
+
 	return b.GetCNAME(opts)
 }
 
@@ -532,6 +538,12 @@ func (b *Backend) UpdateCNAME(opts *model.DomainOptions) (d model.Domain, err er
 		TTL: aws.Int64(int64(b.TTL)),
 	}
 
+	if _, err := b.setRecord(rrs, opts, typeCNAME, r.TID, 0, false); err != nil {
+		return d, err
+	}
+
+	// update wildcard CNAME
+	rrs.Name = aws.String(fmt.Sprintf("\\052.%s", opts.Fqdn))
 	if _, err := b.setRecord(rrs, opts, typeCNAME, r.TID, 0, false); err != nil {
 		return d, err
 	}
