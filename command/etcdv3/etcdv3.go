@@ -130,7 +130,7 @@ func generateCoreFile() error {
 			CoreDNSDBZone:  os.Getenv("CORE_DNS_DB_ZONE"),
 			Domain:         os.Getenv("DOMAIN"),
 			EtcdPrefixPath: os.Getenv("ETCD_PREFIX_PATH"),
-			EtcdEndpoints:  strings.Join(strings.Split(os.Getenv("ETCD_ENDPOINTS"), ","), ""),
+			EtcdEndpoints:  strings.Join(strings.Split(os.Getenv("ETCD_ENDPOINTS"), ","), " "),
 			TTL:            os.Getenv("TTL"),
 			WildCardBound:  strconv.Itoa(len(strings.Split(strings.TrimRight(os.Getenv("DOMAIN"), "."), ".")) + 1),
 		}
